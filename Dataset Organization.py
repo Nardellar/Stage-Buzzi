@@ -3,6 +3,8 @@ import pandas as pd
 import os
 import keras
 from matplotlib import pyplot as plt
+import os
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
 base_path = '/home/nardellar/Scaricati/stage/'
 
@@ -52,7 +54,7 @@ for images, labels in dataset.take(1):  # Prendi il primo batch
 
     for i in range(30):
         ax = plt.subplot(3, 10, i + 1)
-        #DA CAOIRE QUESTA RIGA
+        #DA CAPIRE QUESTA RIGA
         plt.imshow(images[i].numpy().astype("uint8"))
 
         # Converti l'etichetta numerica nel nome della classe
@@ -65,47 +67,39 @@ for images, labels in dataset.take(1):  # Prendi il primo batch
     plt.show()
 
 
-def find_image_by_attribute(attribute):
-    import os
-    import pandas as pd
+import tensorflow as tf
+import pandas as pd
+import numpy as np
+import os
+from tensorflow.keras.utils import load_img, img_to_array
 
+base_path = '/home/nardellar/Scaricati/stage/'
+
+def find_image_by_attribute(attribute, target_size=(224, 224), batch_size=32):
     df = pd.read_csv('esperimenti.csv')
 
-    # Trasformo l'attributo cercato in minuscolo
+    # Cerca l'attributo indipendentemente dalle maiuscole
     attribute_lower = attribute.lower()
-
-    # Trovo, se esiste, la colonna del DataFrame che corrisponde a attribute_lower
-    col_match = None
-    for col in df.columns:
-        if col.lower() == attribute_lower:
-            col_match = col
-            break
+    col_match = next((col for col in df.columns if col.lower() == attribute_lower), None)
 
     if col_match is None:
-        print(f"Attributo '{attribute}' non trovato (case insensitive). Le colonne disponibili sono: {list(df.columns)}")
-        return {}
+        print(f"Attributo '{attribute}' non trovato. Colonne disponibili: {list(df.columns)}")
+        return None
 
-    # A questo punto col_match contiene il nome della colonna “reale” corrispondente
-    # Esempio: Se il DF ha “Temperatura”, e l’utente ha inserito “temperatura” o “TEMPerATura”, col_match sarà “Temperatura”.
-
-    # Seleziono le righe in cui la col_match non è null
+    # Filtra gli esperimenti che hanno quell'attributo valorizzato
     selected_exp = df[df[col_match].notnull()]["ID"].tolist()
     selected_df = df[df["ID"].isin(selected_exp)]
 
-    # Costruisco il dizionario degli esperimenti
-    experiment_dict = {
-        row["ID"]: row.to_dict() for _, row in selected_df.iterrows()
-    }
+    image_paths = []
+    labels = []
 
-    # Scansiono le cartelle ed associo immagini → dati sperimentali
-    #base_path = '/home/nardellar/Scaricati/stage/'
-    image_info_dict = {}
-
-    for exp_id in experiment_dict.keys():
+    # Scansiona le cartelle ed associa immagini ai dati sperimentali
+    for _, row in selected_df.iterrows():
+        exp_id = row["ID"]
         exp_folder = os.path.join(base_path, exp_id)
-        # Verifico che la cartella esista, altrimenti la salto
+
         if not os.path.isdir(exp_folder):
-            print(f"Cartella {exp_folder} non trovata.")
+            print(f"⚠️ Cartella {exp_folder} non trovata, saltata.")
             continue
 
         image_files = [
@@ -114,16 +108,48 @@ def find_image_by_attribute(attribute):
         ]
 
         for img_path in image_files:
-            image_info_dict[img_path] = experiment_dict[exp_id]
+            image_paths.append(img_path)
+            labels.append(np.nan_to_num(row.drop("ID").values.astype(np.float32), nan=0.0))  # Gestisce NaN e converte in float32
 
-    return image_info_dict
+    # Se non ci sono immagini trovate
+    if not image_paths:
+        print("❌ Nessuna immagine trovata per questo attributo.")
+        return None
+
+    # Funzione per caricare e preprocessare le immagini
+    def load_and_preprocess(image_path, label):
+        image_path = image_path.numpy().decode("utf-8")  # Converti il tensor in stringa
+
+        img = load_img(image_path, target_size=(224, 224))
+        img_array = img_to_array(img) / 255.0  # Normalizza tra 0 e 1
+
+        return img_array, label
+
+    def preprocess(tensor):
+        tensor = tf.where(tf.math.is_nan(tensor), tf.zeros_like(tensor), tensor)
+        return tf.cast(tensor, tf.float32)
+
+
+    # Creazione dataset TensorFlow
+    dataset = tf.data.Dataset.from_tensor_slices((image_paths, labels))
+    dataset = dataset.map(lambda image_path, label: (tf.py_function(load_and_preprocess, [image_path, label], [tf.float32, tf.float32])))
+
+    dataset = dataset.shuffle(buffer_size=1000).batch(batch_size).prefetch(tf.data.AUTOTUNE)
+
+    return dataset
 
 
 
 
 
-result = find_image_by_attribute("tempERAtura")
-import json
-print(json.dumps(result, indent = 4))
-print(len(result))
+train_dataset = find_image_by_attribute("temperatura")
 
+if train_dataset:
+    for images, labels in train_dataset.take(1):  # Visualizza un batch
+        print("Batch di immagini:", images.shape)
+        print("Batch di etichette:", labels.shape)
+
+
+for images, labels in train_dataset.take(1):
+    plt.imshow(images[0].numpy())  # Mostra la prima immagine
+    plt.show()
