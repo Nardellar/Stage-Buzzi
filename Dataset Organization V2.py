@@ -2,13 +2,12 @@ import numpy as np
 import tensorflow as tf
 import pandas as pd
 import keras
-from keras.src.utils import load_img, img_to_array
 from matplotlib import pyplot as plt
 
-# Percorso locale dove risiedono le immagini
 base_path = '/Users/matteobarbieri/Documents/Uni/Stage/Allexp10x'
-
 df = pd.read_csv("esperimenti.csv")
+
+
 # Carichiamo un dataset di immagini direttamente dal percorso base, giusto per eventuali addestramenti
 dataset = keras.utils.image_dataset_from_directory(
     base_path,
@@ -22,20 +21,11 @@ dataset = keras.utils.image_dataset_from_directory(
 print("📂 Classi trovate:", dataset.class_names)
 
 
+
+
 def map_labels_to_attribute(ds, df, attribute_name):
-    """
-    Sostituisce le etichette del dataset con il valore di un attributo dal DataFrame CSV,
-    escludendo le immagini con valore NULL o NaN.
 
-    ds: tf.data.Dataset creato da image_dataset_from_directory()
-    df: DataFrame contenente gli esperimenti e i loro attributi
-    attribute_name: stringa, nome dell'attributo da usare come nuova etichetta
-
-    Ritorna:
-    - Nuovo dataset con (immagine, valore_attributo) solo per dati validi
-    - Array con i valori validi dell'attributo
-    """
-
+    attribute_name = attribute_name.lower()
     images_list = []
     attribute_vals_list = []
 
@@ -66,17 +56,9 @@ def map_labels_to_attribute(ds, df, attribute_name):
 
 
 
-def show_images(ds, max_images=9):
-    """
-    Mostra alcune immagini da un tf.data.Dataset.
-    Assumiamo che ds fornisca batch di (immagini, label).
 
-    ds         : tf.data.Dataset da cui leggere (immagini, label).
-    max_images : numero massimo di immagini da visualizzare.
-    """
 
-    import matplotlib.pyplot as plt
-    import numpy as np
+def show_images(ds, max_images=32):
 
     # Preleviamo il primo batch dal dataset
     for images, labels in ds.take(1):
@@ -85,13 +67,15 @@ def show_images(ds, max_images=9):
         # Numero reale di immagini da mostrare
         num_images = min(batch_size, max_images)
 
+        numero_immagini = len(list(ds.unbatch()))
+        print(f"Visualizziamo {num_images} immagini ma nel dataset ce ne sono {numero_immagini}")
+
         plt.figure(figsize=(10, 10))
         for i in range(num_images):
-            ax = plt.subplot(3, 3, i + 1)
+            ax = plt.subplot(4, 8, i + 1)
             # Converte l'immagine in uint8 (se necessario)
             plt.imshow(images[i].numpy().astype("uint8"))
 
-            # Label associata all'immagine: dipende dal tipo di labels (scalar, array, ecc.)
             # Qui mostriamo la "label" così come appare (potrebbe essere un numero, un array, ecc.)
             lbl = labels[i].numpy()
             plt.title(str(lbl))
@@ -100,18 +84,18 @@ def show_images(ds, max_images=9):
         plt.tight_layout()
         plt.show()
 
-        # Dopo aver mostrato il primo batch, usciamo dal ciclo
         break
 
 
 
 
 
-columns_no_id = df.columns.tolist()
+
 train_dataset, values_array = map_labels_to_attribute(dataset, df, "Rampa")
+
 
 if train_dataset is not None:
     show_images(train_dataset)
 else:
-    print("❌ Nessuna immagine con valore valido per 'Rampa'.")
+    print("❌ Nessuna immagine con valore valido")
 

@@ -3,20 +3,20 @@ import pandas as pd
 # Dati sperimentali in un dizionario
 class_attributes = {
     "Esperimenti": [
-        {"ID": "EXP01", "Temperatura": 1400, "Tempo": None, "Rampa": None, "Raffreddamento": 0},
-        {"ID": "EXP02", "Temperatura": 1400, "Tempo": None, "Rampa": None, "Raffreddamento": 1},
-        {"ID": "EXP03", "Temperatura": 1400, "Tempo": None, "Rampa": None, "Raffreddamento": None},
-        {"ID": "EXP04", "Temperatura": 1400, "Tempo": None, "Rampa": None, "Raffreddamento": None},
-        {"ID": "EXP05", "Temperatura": 1500, "Tempo": 45, "Rampa": 40, "Raffreddamento": 1},
-        {"ID": "EXP06", "Temperatura": 1300, "Tempo": None, "Rampa": None, "Raffreddamento": None},
-        {"ID": "EXP07", "Temperatura": None, "Tempo": None, "Rampa": None, "Raffreddamento": 1},
-        {"ID": "EXP08", "Temperatura": None, "Tempo": None, "Rampa": None, "Raffreddamento": 0},
-        {"ID": "EXP09", "Temperatura": 1300, "Tempo": None, "Rampa": None, "Raffreddamento": None},
-        {"ID": "EXP10", "Temperatura": 1500, "Tempo": 45, "Rampa": 10, "Raffreddamento": 0},
-        {"ID": "EXP11", "Temperatura": 1500, "Tempo": 15, "Rampa": 40, "Raffreddamento": 0},
-        {"ID": "EXP12", "Temperatura": 1300, "Tempo": None, "Rampa": None, "Raffreddamento": None},
-        {"ID": "EXP13", "Temperatura": 1500, "Tempo": 15, "Rampa": 10, "Raffreddamento": 1},
-        {"ID": "EXP14", "Temperatura": 1300, "Tempo": None, "Rampa": None, "Raffreddamento": None}
+        {"ID": "EXP01", "temperatura": 1400, "tempo": None, "rampa": None, "raffreddamento": 0},
+        {"ID": "EXP02", "temperatura": 1400, "tempo": None, "rampa": None, "raffreddamento": 1},
+        {"ID": "EXP03", "temperatura": 1400, "tempo": None, "rampa": None, "raffreddamento": None},
+        {"ID": "EXP04", "temperatura": 1400, "tempo": None, "rampa": None, "raffreddamento": None},
+        {"ID": "EXP05", "temperatura": 1500, "tempo": 45, "rampa": 40, "raffreddamento": 1},
+        {"ID": "EXP06", "temperatura": 1300, "tempo": None, "rampa": None, "raffreddamento": None},
+        {"ID": "EXP07", "temperatura": None, "tempo": None, "rampa": None, "raffreddamento": 1},
+        {"ID": "EXP08", "temperatura": None, "tempo": None, "rampa": None, "raffreddamento": 0},
+        {"ID": "EXP09", "temperatura": 1300, "tempo": None, "rampa": None, "raffreddamento": None},
+        {"ID": "EXP10", "temperatura": 1500, "tempo": 45, "rampa": 10, "raffreddamento": 0},
+        {"ID": "EXP11", "temperatura": 1500, "tempo": 15, "rampa": 40, "raffreddamento": 0},
+        {"ID": "EXP12", "temperatura": 1300, "tempo": None, "rampa": None, "raffreddamento": None},
+        {"ID": "EXP13", "temperatura": 1500, "tempo": 15, "rampa": 10, "raffreddamento": 1},
+        {"ID": "EXP14", "temperatura": 1300, "tempo": None, "rampa": None, "raffreddamento": None}
     ]
 }
 
