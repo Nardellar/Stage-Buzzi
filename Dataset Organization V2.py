@@ -4,6 +4,7 @@ import pandas as pd
 import keras
 from matplotlib import pyplot as plt
 
+#Inizalizzo i path utili!
 base_path = '/Users/matteobarbieri/Documents/Uni/Stage/Allexp10x'
 df = pd.read_csv("esperimenti.csv")
 
@@ -67,9 +68,6 @@ def show_images(ds, max_images=32):
         # Numero reale di immagini da mostrare
         num_images = min(batch_size, max_images)
 
-        numero_immagini = len(list(ds.unbatch()))
-        print(f"Visualizziamo {num_images} immagini ma nel dataset ce ne sono {numero_immagini}")
-
         plt.figure(figsize=(10, 10))
         for i in range(num_images):
             ax = plt.subplot(4, 8, i + 1)
@@ -91,7 +89,8 @@ def show_images(ds, max_images=32):
 
 
 
-train_dataset, values_array = map_labels_to_attribute(dataset, df, "Rampa")
+train_dataset, values_array = map_labels_to_attribute(dataset, df, "Temperatura")
+print(f"Nel dataset ci sono {len(list(train_dataset.unbatch()))} immagini classificate per l'attributo cercato")
 
 
 if train_dataset is not None:
