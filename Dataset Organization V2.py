@@ -1,3 +1,5 @@
+import sys
+
 import numpy as np
 import tensorflow as tf
 import pandas as pd
@@ -5,7 +7,8 @@ import keras
 from matplotlib import pyplot as plt
 
 #Inizalizzo i path utili!
-base_path = '/Users/matteobarbieri/Documents/Uni/Stage/Allexp10x'
+base_path = '/home/nardellar/Scaricati/stage'
+#
 df = pd.read_csv("esperimenti.csv")
 
 
@@ -26,7 +29,8 @@ print("📂 Classi trovate:", dataset.class_names)
 
 def map_labels_to_attribute(ds, df, attribute_name):
 
-    attribute_name = attribute_name.lower()
+    attribute_name = attribute_name.strip().lower()  # Rimuove spazi e uniforma a minuscolo
+
     images_list = []
     attribute_vals_list = []
 
@@ -88,9 +92,15 @@ def show_images(ds, max_images=32):
 
 
 
-
-train_dataset, values_array = map_labels_to_attribute(dataset, df, "Temperatura")
-print(f"Nel dataset ci sono {len(list(train_dataset.unbatch()))} immagini classificate per l'attributo cercato")
+attributo = input("Inserisci l'attributo da ricercare: ").strip()
+if not attributo:
+    print("❌ Errore: non hai inserito nessun attributo.")
+    sys.exit()
+if attributo not in df.columns.str.lower():
+    print(f"❌ Errore: l'attributo '{attributo}' non esiste nel dataset.")
+    sys.exit()
+train_dataset, values_array = map_labels_to_attribute(dataset, df, attributo)
+print(f"Nel dataset ci sono {len(list(train_dataset.unbatch()))} immagini classificate per {attributo.strip().lower()}")
 
 
 if train_dataset is not None:
