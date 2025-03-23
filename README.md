@@ -3,6 +3,10 @@
 
 ### Introduzione
 Il seguente script in Python utilizza TensorFlow e Pandas per caricare un dataset di immagini da una directory e associarlo a un file CSV contenente attributi aggiuntivi. Il codice permette di visualizzare immagini in base a un attributo scelto dall'utente.
+per avere tutte le librerie necessarie, eseguire il seguente comando:
+```bash pip install -r requirements.txt
+e successivamente eseguire il comando:
+```bash python main.py
 
 ### Librerie Utilizzate
 

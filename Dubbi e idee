@@ -1,0 +1,11 @@
+1) RIGA 19: <Parametro label_mode="int">
+
+Specifica il formato delle etichette:
+
+- "int" → Le etichette sono numeri interi (es. 0, 1, 2...).
+
+- "categorical" → Le etichette vengono convertite in one-hot encoding ([1, 0] per "cani", [0, 1] per "gatti").
+
+- "binary" → Usa 0 e 1 solo per classificazione binaria.
+
+Dovremmo magari usare "categorical" per il nostro caso?
