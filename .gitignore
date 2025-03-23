@@ -1,0 +1,22 @@
+# 🧠 Ignora il dataset locale (le immagini)
+Esperimenti/
+
+# 🐍 Ignora l’ambiente virtuale
+.venv/
+
+# 💡 File generati da Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# 📝 Ignora file temporanei o di backup
+*.log
+*.tmp
+*.bak
+.DS_Store
+
+# 🧪 Jupyter notebook checkpoints
+.ipynb_checkpoints/
+
+# 📦 Ignora il file ZIP del dataset se presente
+esperimenti.zip
