@@ -1,130 +1,109 @@
-## IMPORT LIBRERIE:
-import sys  # Importa il modulo sys per poter terminare il programma in caso di errore
+import os
+import sys
+import zipfile
 
-import keras  # Importa Keras per la gestione del dataset
-import numpy as np  # Importa NumPy per operazioni matematiche e gestione di array
-import pandas  # Importa Pandas per la gestione dei dati in formato tabellare (CSV)
-import tensorflow as tf  # Importa TensorFlow per la gestione del dataset di immagini
-from matplotlib import (  # Importa Matplotlib per la visualizzazione delle immagini
-    pyplot as plt,
-)
+import gdown
+import keras
+import numpy as np
+import pandas as pd
+import tensorflow as tf
+from matplotlib import pyplot as plt
 
-## COSTANTI GLOBALI:
-BASE_PATH = (
-    "Esperimenti"  # Inizializza il percorso base dove sono memorizzate le immagini
-)
+# === CONFIG ===
+DATASET_DIR = "Esperimenti"
 CSV_FILE = "esperimenti.csv"
+ZIP_NAME = "esperimenti.zip"
+GDRIVE_ID = "1JxuABW728R8n_nz2VONDSOIiWzPFO64a"  # ← Cambia qui
 
 
-## FUNZIONI:
+# === UTILITY ===
+def download_and_extract():
+    if not os.path.exists(DATASET_DIR):
+        print("⬇️ Scaricamento del dataset da Google Drive...")
+        url = f"https://drive.google.com/uc?id={GDRIVE_ID}"
+        gdown.download(url, ZIP_NAME, quiet=False)
+
+        print("📦 Estrazione in corso...")
+        with zipfile.ZipFile(ZIP_NAME, "r") as zip_ref:
+            zip_ref.extractall()
+        os.remove(ZIP_NAME)
+        print("✅ Dataset pronto!")
+
+
 def map_labels_to_attribute(ds, df, attribute_name):
-    """
-    Associa le immagini del dataset con i valori di un attributo specificato.
-    """
-    attribute_name = (
-        attribute_name.strip().lower()
-    )  # Pulisce il nome dell'attributo rimuovendo spazi e trasformandolo in minuscolo
-
-    images_list = []  # Lista per salvare le immagini valide
-    attribute_vals_list = []  # Lista per salvare i valori corrispondenti dell'attributo
-
-    # Crea un dizionario per associare gli ID esperimenti ai valori dell'attributo richiesto
+    attribute_name = attribute_name.strip().lower()
+    images_list = []
+    attribute_vals_list = []
     attribute_map = df.set_index("ID")[attribute_name].to_dict()
 
-    # Scorre il dataset immagine per immagine
     for image, label in ds.unbatch():
-        class_name = ds.class_names[
-            label.numpy()
-        ]  # Ottiene il nome della classe in base all'etichetta numerica
-        val = attribute_map.get(
-            class_name, None
-        )  # Recupera il valore dell'attributo dal CSV
-
-        # Se il valore è valido (non None e non NaN), aggiunge immagine e valore alla lista
+        class_name = ds.class_names[label.numpy()]
+        val = attribute_map.get(class_name, None)
         if val is not None and not (isinstance(val, float) and np.isnan(val)):
             images_list.append(image.numpy())
             attribute_vals_list.append(val)
 
-    # Se non ci sono immagini valide, stampa un avviso e restituisce None
     if not images_list:
         print("⚠️ Nessuna immagine valida trovata con l'attributo selezionato.")
         return None, None
 
-    # Crea un dataset TensorFlow con coppie (immagine, valore attributo)
     ds_final = tf.data.Dataset.from_tensor_slices(
         (images_list, attribute_vals_list)
     ).batch(32)
 
-    return ds_final, np.array(
-        attribute_vals_list
-    )  # Restituisce il dataset e un array di valori
+    return ds_final, np.array(attribute_vals_list)
 
 
 def show_images(ds, max_images=32):
-    """
-    Mostra un massimo di `max_images` immagini da un dataset.
-    """
-    for images, labels in ds.take(1):  # Prende il primo batch dal dataset
-        batch_size = images.shape[0]  # Ottiene la dimensione del batch
-        num_images = min(
-            batch_size, max_images
-        )  # Determina il numero massimo di immagini da mostrare
-
-        plt.figure(figsize=(10, 10))  # Imposta la dimensione della figura
+    for images, labels in ds.take(1):
+        num_images = min(images.shape[0], max_images)
+        plt.figure(figsize=(10, 10))
         for i in range(num_images):
-            ax = plt.subplot(4, 8, i + 1)  # Crea un subplot (4 righe, 8 colonne)
-            plt.imshow(images[i].numpy().astype("uint8"))  # Mostra l'immagine
-            plt.title(str(labels[i].numpy()))  # Imposta il titolo con l'etichetta
-            plt.axis("off")  # Nasconde gli assi
+            ax = plt.subplot(4, 8, i + 1)
+            plt.imshow(images[i].numpy().astype("uint8"))
+            plt.title(str(labels[i].numpy()))
+            plt.axis("off")
+        plt.tight_layout()
+        plt.show()
+        break
 
-        plt.tight_layout()  # Ottimizza la disposizione delle immagini
-        plt.show()  # Mostra le immagini
-        break  # Esce dal ciclo dopo aver mostrato il primo batch
 
-
-## MAIN:
+# === MAIN ===
 if __name__ == "__main__":
-    # Carica il file CSV che contiene i dati degli esperimenti in un DataFrame Pandas
-    data_frame = pandas.read_csv(CSV_FILE)
+    download_and_extract()
 
-    # Carichiamo un dataset di immagini direttamente dalla cartella specificata. Il risultato e' un dataset TensorFlow (tf.data.Dataset)
+    if not os.path.exists(CSV_FILE):
+        print(f"❌ Errore: File CSV '{CSV_FILE}' non trovato.")
+        sys.exit(1)
+
+    data_frame = pd.read_csv(CSV_FILE)
+
     dataset = keras.utils.image_dataset_from_directory(
-        BASE_PATH,
-        labels="inferred",  # Le etichette vengono assegnate in base al nome delle sottocartelle
-        label_mode="int",  # Le etichette sono rappresentate tramite interi (0, 1, 2,...)
-        image_size=(108, 192),  # Dimensione a cui vengono ridimensionate le immagini
-        batch_size=32,  # Numero di immagini per batch
-        verbose=True,  # Stampa informazioni sul caricamento (ad esempio, il numero di immagini trovate)
+        DATASET_DIR,
+        labels="inferred",
+        label_mode="int",
+        image_size=(108, 192),
+        batch_size=32,
+        verbose=True,
     )
 
-    # Stampa le classi trovate nel dataset
-    print("\U0001f4c2 Classi trovate:", dataset.class_names)
+    print("\n📁 Classi trovate:", dataset.class_names)
 
-    # Chiede all'utente di inserire l'attributo e lo pulisce da spazi iniziali e finali
-    attributo = input("Inserisci l'attributo da ricercare: ").strip()
-
-    # Se l'utente non ha inserito nulla, stampa un errore e termina il programma
+    attributo = input("🔎 Inserisci l'attributo da ricercare: ").strip()
     if not attributo:
-        print("❌ Errore: non hai inserito nessun attributo.")
+        print("❌ Errore: attributo non inserito.")
         sys.exit()
 
-    # Controlla se l'attributo esiste nelle colonne del DataFrame (in minuscolo per uniformità)
-    if attributo not in data_frame.columns.str.lower():
-        print(f"❌ Errore: l'attributo '{attributo}' non esiste nel dataset.")
+    if attributo.lower() not in data_frame.columns.str.lower():
+        print(f"❌ Errore: l'attributo '{attributo}' non esiste nel CSV.")
         sys.exit()
 
-    # Mappa le immagini con i valori dell'attributo scelto
     train_dataset, values_array = map_labels_to_attribute(
         dataset, data_frame, attributo
     )
 
-    # Stampa il numero di immagini classificate per l'attributo selezionato
-    print(
-        f"Nel dataset ci sono {len(list(train_dataset.unbatch()))} immagini classificate per {attributo.strip().lower()}"
-    )
-
-    # Se il dataset non è vuoto, mostra le immagini
     if train_dataset is not None:
+        print(f"\n📊 Immagini trovate: {len(list(train_dataset.unbatch()))}")
         show_images(train_dataset)
     else:
-        print("❌ Nessuna immagine con valore valido")
+        print("❌ Nessuna immagine con valore valido.")
