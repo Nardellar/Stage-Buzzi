@@ -20,3 +20,4 @@ __pycache__/
 
 # 📦 Ignora il file ZIP del dataset se presente
 esperimenti.zip
+/Esperimenti/EXP14/
