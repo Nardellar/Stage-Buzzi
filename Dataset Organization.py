@@ -95,16 +95,16 @@ if __name__ == "__main__":
         print(f"❌ Errore: File CSV '{CSV_FILE}' non trovato.")
         sys.exit(1)
 
-    data_frame = pd.read_csv(CSV_FILE)  # Legge il CSV
+    data_frame = pd.read_csv(CSV_FILE)  # Legge il CSV e salva nel dataframe
 
     # Carica le immagini come dataset TensorFlow
     dataset = keras.utils.image_dataset_from_directory(
-        DATASET_DIR,
+        DATASET_DIR,  # la cartella Esperimenti
         labels="inferred",  # Inferisce le etichette dal nome delle cartelle
         label_mode="int",  # Le etichette sono numeri interi
         image_size=(108, 192),  # Ridimensiona le immagini
         batch_size=32,
-        verbose=True,
+        verbose=True,  # Stampa informazioni (quanti file ha trovato, ecc.)
     )
 
     print("\n📁 Classi trovate:", dataset.class_names)  # Stampa le classi/ID trovate
