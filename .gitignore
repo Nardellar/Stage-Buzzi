@@ -19,5 +19,4 @@ __pycache__/
 .ipynb_checkpoints/
 
 # 📦 Ignora il file ZIP del dataset se presente
-esperimenti.zip
 /Esperimenti/EXP14/
