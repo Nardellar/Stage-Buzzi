@@ -102,9 +102,10 @@ if __name__ == "__main__":
         DATASET_DIR,  # la cartella Esperimenti
         labels="inferred",  # Inferisce le etichette dal nome delle cartelle
         label_mode="int",  # Le etichette sono numeri interi
-        image_size=(108, 192),  # Ridimensiona le immagini
+        image_size=(108, 140),  # Ridimensiona le immagini
         batch_size=32,
         verbose=True,  # Stampa informazioni (quanti file ha trovato, ecc.)
+        crop_to_aspect_ratio = True
     )
 
     print("\n📁 Classi trovate:", dataset.class_names)  # Stampa le classi/ID trovate
