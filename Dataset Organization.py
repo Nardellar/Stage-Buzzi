@@ -1,14 +1,16 @@
 # === IMPORT LIBRERIE ===
-import os  # Per operazioni sul filesystem (esistenza file/cartelle)
+import os  # Per operazioni sul filesystem
 import sys  # Per terminare il programma in caso di errore
 import zipfile  # Per estrarre file ZIP
-
 import gdown  # Per scaricare file da Google Drive
-import keras  # Per creare dataset di immagini
 import numpy as np  # Per operazioni numeriche e array
-import pandas as pd  # Per gestire e leggere file CSV
+import pandas as pd  # Per leggere file CSV
 import tensorflow as tf  # Per pipeline di immagini e modelli TensorFlow
 from matplotlib import pyplot as plt  # Per visualizzare immagini
+from tensorflow.keras import layers, models
+from tensorflow.keras.applications import VGG16
+
+
 
 # === CONFIGURAZIONE ===
 DATASET_DIR = "Esperimenti"  # Cartella in cui verranno estratte le immagini
@@ -91,6 +93,32 @@ def standardize_dataset(dataset):
 
 
 
+def normalize_dataset(dataset):
+    images_list = []
+
+    # Raggruppa tutto in un singolo array per calcolare min e max
+    for images, _ in dataset:
+        images_list.append(images.numpy())
+
+    all_images = np.concatenate(images_list, axis=0)
+
+    # Calcoliamo il min e il max su tutti i pixel (asse=(0,1,2))
+    min_val = np.min(all_images, axis=(0, 1, 2))
+    max_val = np.max(all_images, axis=(0, 1, 2))
+
+    # Mappa la normalizzazione sul dataset
+    # (immagine - min) / (max - min)
+    dataset = dataset.map(
+        lambda images, labels: (
+            (tf.cast(images, tf.float32) - min_val) / (max_val - min_val),
+            labels
+        )
+    )
+    return dataset
+
+
+
+
 # === FUNZIONE PER VISUALIZZARE UN BATCH DI IMMAGINI ===
 def show_images(ds, max_images=32):
     for images, labels in ds.take(1):  # Prende un solo batch
@@ -101,13 +129,56 @@ def show_images(ds, max_images=32):
 
         for i in range(num_images):  # Crea una griglia 4x8
             ax = plt.subplot(4, 8, i + 1)
-            plt.imshow(images[i].numpy().astype("uint8"))  # Mostra l'immagine
+            plt.imshow(images[i].numpy())  # Mostra l'immagine
             plt.title(str(labels[i].numpy()))  # Mostra il valore dell'attributo
             plt.axis("off")  # Nasconde gli assi
 
         plt.tight_layout()  # Ottimizza layout
         plt.show()  # Mostra il plot
         break  # Solo il primo batch
+
+
+
+
+
+def crea_modello_vgg16(input_shape, num_classi):
+
+    # Carica VGG16 pre-addestrato su ImageNet, escludendo i livelli fully connected finali
+    base_model = VGG16(
+        include_top=False,         # escludiamo i layer densi finali
+        weights='imagenet',        # utilizziamo pesi pre-addestrati
+        input_shape=input_shape
+    )
+
+    # Congela i pesi di VGG16 se non vuoi addestrarli ulteriormente
+    for layer in base_model.layers:
+        layer.trainable = False
+
+    # Aggiungi livelli personalizzati
+    x = layers.Flatten()(base_model.output)
+    x = layers.Dense(256, activation='relu')(x)
+    x = layers.Dropout(0.5)(x)
+    output = layers.Dense(num_classi, activation='softmax')(x)
+
+    # Crea il nuovo modello
+    model = models.Model(inputs=base_model.input, outputs=output)
+
+    # Compila il modello
+    model.compile(
+        optimizer='adam',
+        loss='categorical_crossentropy',
+        metrics=['accuracy']
+    )
+
+    return model
+
+
+
+
+
+
+
+
 
 
 # === BLOCCO PRINCIPALE ===
@@ -122,13 +193,12 @@ if __name__ == "__main__":
     data_frame = pd.read_csv(CSV_FILE)  # Legge il CSV e salva nel dataframe
 
     # Carica le immagini come dataset TensorFlow
-    dataset = keras.utils.image_dataset_from_directory(
+    dataset = tf.keras.utils.image_dataset_from_directory(
         DATASET_DIR,  # la cartella Esperimenti
         labels="inferred",  # Inferisce le etichette dal nome delle cartelle
         label_mode="int",  # Le etichette sono numeri interi
-        image_size=(108, 140),  # Ridimensiona le immagini
+        image_size=(108, 140),  # Ridimensiona le immagini e ritaglia i lati per togliere l'etichetta
         batch_size=32,
-        verbose=True,  # Stampa informazioni (quanti file ha trovato, ecc.)
         crop_to_aspect_ratio = True
     )
 
