@@ -67,6 +67,30 @@ def map_labels_to_attribute(ds, df, attribute_name):
     return ds_final, np.array(attribute_vals_list)  # Ritorna dataset e array valori
 
 
+def standardize_dataset(dataset):
+
+    images_list = []
+
+    # Itera su tutti i batch del dataset
+    for images, _ in dataset:
+        # Converte i tensori in NumPy per facilitarne l’uso
+        images_list.append(images.numpy())
+
+    # Concatena tutti i batch in un unico array
+    # Avremo una forma (totale_immagini, altezza, larghezza, canali)
+    all_images = np.concatenate(images_list, axis=0)
+
+    # Calcoliamo media e std su tutti i pixel (asse=(0,1,2)) oppure per canale
+    mean = np.mean(all_images, axis=(0, 1, 2))
+    std = np.std(all_images, axis=(0, 1, 2))
+
+    dataset = dataset.map(
+        lambda images, labels: ((tf.cast(images, tf.float32) - mean) / std, labels)
+    )
+    return dataset
+
+
+
 # === FUNZIONE PER VISUALIZZARE UN BATCH DI IMMAGINI ===
 def show_images(ds, max_images=32):
     for images, labels in ds.take(1):  # Prende un solo batch
@@ -108,6 +132,8 @@ if __name__ == "__main__":
         crop_to_aspect_ratio = True
     )
 
+
+
     print("\n📁 Classi trovate:", dataset.class_names)  # Stampa le classi/ID trovate
 
     attributo = input(
@@ -126,6 +152,9 @@ if __name__ == "__main__":
     train_dataset, values_array = map_labels_to_attribute(
         dataset, data_frame, attributo
     )
+
+    train_dataset = standardize_dataset(train_dataset)
+
 
     if train_dataset is not None:
         print(
