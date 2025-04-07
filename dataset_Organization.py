@@ -8,7 +8,6 @@ import pandas as pd  # Per leggere file CSV
 import tensorflow as tf  # Per pipeline di immagini e modelli TensorFlow
 from matplotlib import pyplot as plt  # Per visualizzare immagini
 from tensorflow.keras import layers, models
-from tensorflow.keras.applications import VGG16
 
 
 
@@ -70,7 +69,6 @@ def map_labels_to_attribute(ds, df, attribute_name):
 
 
 def standardize_dataset(dataset):
-
     images_list = []
 
     # Itera su tutti i batch del dataset
@@ -118,7 +116,6 @@ def normalize_dataset(dataset):
 
 
 
-
 # === FUNZIONE PER VISUALIZZARE UN BATCH DI IMMAGINI ===
 def show_images(ds, max_images=32):
     for images, labels in ds.take(1):  # Prende un solo batch
@@ -141,38 +138,6 @@ def show_images(ds, max_images=32):
 
 
 
-def crea_modello_vgg16(input_shape, num_classi):
-
-    # Carica VGG16 pre-addestrato su ImageNet, escludendo i livelli fully connected finali
-    base_model = VGG16(
-        input_shape=(512, 512, 3),
-        include_top=False,
-        weights="imagenet",
-        pooling='avg'
-    )
-
-    base_model.trainable = False
-
-    # Aggiungi livelli personalizzati
-    x = layers.Flatten()(base_model.output)
-    x = layers.Dense(256, activation='relu')(x)
-    x = layers.Dropout(0.5)(x)
-    output = layers.Dense(num_classi, activation='softmax')(x)
-
-    # Crea il nuovo modello
-    model = models.Model(inputs=base_model.input, outputs=output)
-
-    # Compila il modello
-    model.compile(
-        optimizer='adam',
-        loss='categorical_crossentropy',
-        metrics=['accuracy']
-    )
-
-    return model
-
-
-
 
 
 
@@ -181,7 +146,7 @@ def crea_modello_vgg16(input_shape, num_classi):
 
 
 # === BLOCCO PRINCIPALE ===
-if __name__ == "__main__":
+def getdataset():
     download_and_extract()  # Scarica ed estrae il dataset se non già presente
 
     # Controlla che il file CSV esista
@@ -222,7 +187,7 @@ if __name__ == "__main__":
         dataset, data_frame, attributo
     )
 
-    train_dataset = standardize_dataset(train_dataset)
+    train_dataset = normalize_dataset(train_dataset)
 
 
     if train_dataset is not None:
@@ -233,9 +198,4 @@ if __name__ == "__main__":
     else:
         print("❌ Nessuna immagine con valore valido.")
 
-
-    model = crea_modello_vgg16(
-        (108, 140, 3),
-        len(dataset.class_names))
-
-    model.summary()
+    return train_dataset, values_array
