@@ -145,14 +145,13 @@ def crea_modello_vgg16(input_shape, num_classi):
 
     # Carica VGG16 pre-addestrato su ImageNet, escludendo i livelli fully connected finali
     base_model = VGG16(
-        include_top=False,         # escludiamo i layer densi finali
-        weights='imagenet',        # utilizziamo pesi pre-addestrati
-        input_shape=input_shape
+        input_shape=(512, 512, 3),
+        include_top=False,
+        weights="imagenet",
+        pooling='avg'
     )
 
-    # Congela i pesi di VGG16 se non vuoi addestrarli ulteriormente
-    for layer in base_model.layers:
-        layer.trainable = False
+    base_model.trainable = False
 
     # Aggiungi livelli personalizzati
     x = layers.Flatten()(base_model.output)
@@ -233,3 +232,10 @@ if __name__ == "__main__":
         show_images(train_dataset)  # Mostra le immagini
     else:
         print("❌ Nessuna immagine con valore valido.")
+
+
+    model = crea_modello_vgg16(
+        (108, 140, 3),
+        len(dataset.class_names))
+
+    model.summary()
