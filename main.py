@@ -18,7 +18,7 @@ def main():
         model=model,
         train_dataset=train_ds,
         validation_dataset=val_ds,
-        epochs=10,
+        epochs=30,
         checkpoint_filepath='best_model.h5'
     )
 
