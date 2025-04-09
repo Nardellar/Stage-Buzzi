@@ -9,7 +9,7 @@ def main():
 
 
     model = create_classification_model(
-        input_shape=(112, 112, 3),
+        input_shape=(224, 224, 3),
         num_classes=3,  # per esempio
         base_trainable=False
     )
@@ -18,7 +18,7 @@ def main():
         model=model,
         train_dataset=train_ds,
         validation_dataset=val_ds,
-        epochs=30,
+        epochs=10,
         checkpoint_filepath='best_model.h5'
     )
 
