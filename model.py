@@ -7,24 +7,11 @@ from tensorflow.keras.optimizers.legacy import Adam
 
 def _build_fc_layers(
         inputs,
-        units_list=(512, 256),
+        units_list=(512, 512, 512, 512, 512, 256),
         dropout_rates=(0.5, 0.3),
         activation='relu',
         use_batch_norm=True
 ):
-    """
-    Costruisce blocchi fully connected personalizzati.
-
-    Args:
-        inputs: Tensor di input
-        units_list: Lista con numero di unità per ogni livello FC
-        dropout_rates: Lista con tassi di dropout per ogni livello
-        activation: Funzione di attivazione da usare
-        use_batch_norm: Se True, applica la normalizzazione batch
-
-    Returns:
-        Tensor di output dell'ultimo livello
-    """
     x = inputs
 
     # Verifica che le liste di unità e dropout abbiano la stessa lunghezza
@@ -43,7 +30,7 @@ def _build_fc_layers(
 
 
 def create_classification_model(
-        input_shape=(112, 112, 3),
+        input_shape=(224, 224, 3),
         num_classes=3,
         base_trainable=False,
         optimizer=None,
@@ -53,23 +40,7 @@ def create_classification_model(
         use_batch_norm=True,
         learning_rate=0.001
 ):
-    """
-    Crea un modello di classificazione basato su VGG16 con transfer learning.
 
-    Args:
-        input_shape: Dimensione immagini di input (altezza, larghezza, canali)
-        num_classes: Numero di classi per la classificazione
-        base_trainable: Se True, sblocca i pesi del modello base
-        optimizer: Ottimizzatore personalizzato (se None, usa Adam)
-        fc_units_list: Lista con numero di unità per ogni livello FC
-        fc_dropout_rates: Lista con tassi di dropout per ogni livello FC
-        fc_activation: Funzione di attivazione per i livelli FC
-        use_batch_norm: Se True, applica la normalizzazione batch nei livelli FC
-        learning_rate: Learning rate iniziale dell'ottimizzatore
-
-    Returns:
-        Modello Keras compilato
-    """
     # Verifica dimensioni di input valide per VGG16
     min_dim = 32
     if input_shape[0] < min_dim or input_shape[1] < min_dim:
@@ -138,24 +109,7 @@ def train_model(
         min_lr=1e-6,
         additional_callbacks=None
 ):
-    """
-    Addestra il modello con best practices come early stopping e learning rate scheduling.
 
-    Args:
-        model: Modello Keras compilato
-        train_dataset: Dataset di addestramento
-        validation_dataset: Dataset di validazione
-        epochs: Numero massimo di epoche
-        checkpoint_filepath: Percorso per salvare i migliori pesi del modello
-        early_stopping_patience: Numero di epoche di attesa prima di interrompere
-        lr_reduction_patience: Numero di epoche di attesa prima di ridurre LR
-        lr_reduction_factor: Fattore di riduzione del learning rate
-        min_lr: Learning rate minimo
-        additional_callbacks: Lista di callback aggiuntivi
-
-    Returns:
-        Storia dell'addestramento
-    """
     # Lista base di callback
     callbacks = [
         EarlyStopping(

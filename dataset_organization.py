@@ -186,7 +186,7 @@ def get_dataset():
         DATASET_DIR,  # la cartella Esperimenti
         labels="inferred",  # Inferisce le etichette dal nome delle cartelle
         label_mode="int",  # Le etichette sono numeri interi
-        image_size=(112, 112),  # Ridimensiona le immagini e ritaglia i lati per togliere l'etichetta
+        image_size=(224, 224),  # Ridimensiona le immagini e ritaglia i lati per togliere l'etichetta
         batch_size=32,
         seed=42,  # deve essere uguale al precedente
         crop_to_aspect_ratio = True,
@@ -198,7 +198,7 @@ def get_dataset():
         DATASET_DIR,  # la cartella Esperimenti
         labels="inferred",  # Inferisce le etichette dal nome delle cartelle
         label_mode="int",  # Le etichette sono numeri interi
-        image_size=(112, 112),  # Ridimensiona le immagini e ritaglia i lati per togliere l'etichetta
+        image_size=(224, 224),  # Ridimensiona le immagini e ritaglia i lati per togliere l'etichetta
         batch_size=32,
         seed=42,  # deve essere uguale al precedente
         crop_to_aspect_ratio=True,
