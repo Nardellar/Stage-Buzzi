@@ -184,7 +184,7 @@ def get_dataset():
     image_size = (112, 112)
 
     # Carica le immagini come dataset TensorFlow
-    train_dataset = tf.keras.utils.image_dataset_from_directory(
+    train_dataset, validation_dataset = tf.keras.utils.image_dataset_from_directory(
         DATASET_DIR,  # la cartella Esperimenti
         labels="inferred",  # Inferisce le etichette dal nome delle cartelle
         label_mode="int",  # Le etichette sono numeri interi
@@ -193,19 +193,7 @@ def get_dataset():
         seed=42,  # deve essere uguale al precedente
         crop_to_aspect_ratio = True,
         validation_split = 0.2,  # Percentuale di split per la validation
-        subset = "training",  # Specifica che questo dataset è la sezione 'training'
-    )
-
-    validation_dataset = tf.keras.utils.image_dataset_from_directory(
-        DATASET_DIR,  # la cartella Esperimenti
-        labels="inferred",  # Inferisce le etichette dal nome delle cartelle
-        label_mode="int",  # Le etichette sono numeri interi
-        image_size=image_size,  # Ridimensiona le immagini e ritaglia i lati per togliere l'etichetta
-        batch_size=32,
-        seed=42,  # deve essere uguale al precedente
-        crop_to_aspect_ratio=True,
-        validation_split=0.2,  # Percentuale di split per la validation
-        subset="validation",  # Specifica che questo dataset è la sezione 'training'
+        subset = "both",  # Specifica che questo dataset è la sezione 'training'
     )
 
 
