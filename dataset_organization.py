@@ -11,6 +11,7 @@ from tensorflow.keras import layers, models
 
 
 
+
 # === CONFIGURAZIONE ===
 DATASET_DIR = "Esperimenti"  # Cartella in cui verranno estratte le immagini
 CSV_FILE = "esperimenti.csv"  # Nome del file CSV contenente gli attributi
@@ -34,8 +35,7 @@ def download_and_extract():
 
 
 def map_labels_to_attribute(ds, df, attribute_name):
-    import numpy as np
-    import tensorflow as tf
+
 
     attribute_name = attribute_name.strip().lower()  # Normalizza il nome dell'attributo
 
@@ -181,12 +181,14 @@ def get_dataset():
 
     data_frame = pd.read_csv(CSV_FILE)  # Legge il CSV e salva nel dataframe
 
+    image_size = (112, 112)
+
     # Carica le immagini come dataset TensorFlow
     train_dataset = tf.keras.utils.image_dataset_from_directory(
         DATASET_DIR,  # la cartella Esperimenti
         labels="inferred",  # Inferisce le etichette dal nome delle cartelle
         label_mode="int",  # Le etichette sono numeri interi
-        image_size=(224, 224),  # Ridimensiona le immagini e ritaglia i lati per togliere l'etichetta
+        image_size=image_size,  # Ridimensiona le immagini e ritaglia i lati per togliere l'etichetta
         batch_size=32,
         seed=42,  # deve essere uguale al precedente
         crop_to_aspect_ratio = True,
@@ -198,7 +200,7 @@ def get_dataset():
         DATASET_DIR,  # la cartella Esperimenti
         labels="inferred",  # Inferisce le etichette dal nome delle cartelle
         label_mode="int",  # Le etichette sono numeri interi
-        image_size=(224, 224),  # Ridimensiona le immagini e ritaglia i lati per togliere l'etichetta
+        image_size=image_size,  # Ridimensiona le immagini e ritaglia i lati per togliere l'etichetta
         batch_size=32,
         seed=42,  # deve essere uguale al precedente
         crop_to_aspect_ratio=True,
