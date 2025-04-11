@@ -4,18 +4,17 @@ from tensorflow.keras import layers, models
 from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau, ModelCheckpoint
 from tensorflow.keras.optimizers.legacy import Adam
 
-# 112 112 con 10 epoche mi da 0.10, 0.96, 0.37, 0.86
-# 112 122 con 10 epoche e con ultimo dropout 0.2:  loss: 0.0110 - accuracy: 0.9973 - val_loss: 0.3503 - val_accuracy: 0.9107 - lr: 2.0000e-04
+
 
 
 # 224 224 con 10 epoche mi da 0.047, 0.98, 0.17, 0.95
 # loss: 0.0439 - accuracy: 0.9857 - val_loss: 0.1811 - val_accuracy: 0.9429 - lr: 0.0010
 # loss: 0.0612 - accuracy: 0.9750 - val_loss: 0.1366 - val_accuracy: 0.9607 - lr: 0.0010
 
-
-
+# 112 112 con 10 epoche mi da 0.10, 0.96, 0.37, 0.86
+# 112 122 con 10 epoche e con ultimo dropout 0.2:  loss: 0.0110 - accuracy: 0.9973 - val_loss: 0.3503 - val_accuracy: 0.9107 - lr: 2.0000e-04
 # loss: 0.0361 - accuracy: 0.9875 - val_loss: 0.3978 - val_accuracy: 0.9000 - lr: 4.0000e-05
-
+# loss: 0.0488 - accuracy: 0.9830 - val_loss: 0.3294 - val_accuracy: 0.9179 - lr: 4.0000e-05
 
 
 def build_fc_layers(
