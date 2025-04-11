@@ -4,14 +4,40 @@ from tensorflow.keras import layers, models
 from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau, ModelCheckpoint
 from tensorflow.keras.optimizers.legacy import Adam
 
+# 112 112 con 10 epoche mi da 0.10, 0.96, 0.37, 0.86
+# 112 122 con 10 epoche e con ultimo dropout 0.2:  loss: 0.0110 - accuracy: 0.9973 - val_loss: 0.3503 - val_accuracy: 0.9107 - lr: 2.0000e-04
 
-def _build_fc_layers(
+
+# 224 224 con 10 epoche mi da 0.047, 0.98, 0.17, 0.95
+# loss: 0.0439 - accuracy: 0.9857 - val_loss: 0.1811 - val_accuracy: 0.9429 - lr: 0.0010
+# loss: 0.0612 - accuracy: 0.9750 - val_loss: 0.1366 - val_accuracy: 0.9607 - lr: 0.0010
+
+
+
+# loss: 0.0361 - accuracy: 0.9875 - val_loss: 0.3978 - val_accuracy: 0.9000 - lr: 4.0000e-05
+
+
+
+def build_fc_layers(
         inputs,
-        units_list=(512, 512, 512, 512, 512, 256),
-        dropout_rates=(0.5, 0.3),
+        units_list=(512, 256, 128),
+        dropout_rates=(0.5, 0.3, 0.2),
         activation='relu',
         use_batch_norm=True
 ):
+    """
+    Costruisce i livelli fully connected del modello.
+
+    Args:
+        inputs: Tensor di input
+        units_list: Lista con il numero di unità per ogni livello dense
+        dropout_rates: Lista con i tassi di dropout per ogni livello
+        activation: Funzione di attivazione da utilizzare
+        use_batch_norm: Se utilizzare la normalizzazione batch
+
+    Returns:
+        Tensor di output dopo i livelli fully connected
+    """
     x = inputs
 
     # Verifica che le liste di unità e dropout abbiano la stessa lunghezza
@@ -30,7 +56,7 @@ def _build_fc_layers(
 
 
 def create_classification_model(
-        input_shape=(224, 224, 3),
+        input_shape,
         num_classes=3,
         base_trainable=False,
         optimizer=None,
@@ -40,7 +66,23 @@ def create_classification_model(
         use_batch_norm=True,
         learning_rate=0.001
 ):
+    """
+    Crea un modello di classificazione basato su VGG16.
 
+    Args:
+        input_shape: Forma dell'input (altezza, larghezza, canali)
+        num_classes: Numero di classi da classificare
+        base_trainable: Se rendere addestrabile il modello base
+        optimizer: Ottimizzatore personalizzato (opzionale)
+        fc_units_list: Lista con il numero di unità per ogni livello fully connected
+        fc_dropout_rates: Lista con i tassi di dropout per ogni livello FC
+        fc_activation: Funzione di attivazione per i livelli FC
+        use_batch_norm: Se utilizzare la normalizzazione batch
+        learning_rate: Tasso di apprendimento per l'ottimizzatore Adam
+
+    Returns:
+        Modello TensorFlow compilato
+    """
     # Verifica dimensioni di input valide per VGG16
     min_dim = 32
     if input_shape[0] < min_dim or input_shape[1] < min_dim:
@@ -53,7 +95,7 @@ def create_classification_model(
         weights="imagenet"
     )
 
-    # Configura il congelamento/scongelamento dei pesi del modello base
+    # Imposta se il modello base è addestrabile o meno
     base_model.trainable = base_trainable
 
     # Costruzione modello
@@ -64,7 +106,7 @@ def create_classification_model(
     x = layers.GlobalAveragePooling2D()(x)
 
     # Aggiunge blocco fully connected personalizzato
-    x = _build_fc_layers(
+    x = build_fc_layers(
         inputs=x,
         units_list=fc_units_list,
         dropout_rates=fc_dropout_rates,
@@ -78,7 +120,7 @@ def create_classification_model(
         loss = 'binary_crossentropy'
     else:
         outputs = layers.Dense(num_classes, activation='softmax')(x)
-        loss = 'sparse_categorical_crossentropy'
+        loss = 'sparse_categorical_crossentropy'  # Cambiato da sparse_categorical_crossentropy
 
     # Crea il modello Keras completo
     model = models.Model(inputs=inputs, outputs=outputs)
@@ -102,6 +144,7 @@ def train_model(
         train_dataset,
         validation_dataset,
         epochs=50,
+        batch_size=None,  # Aggiunto parametro batch_size
         checkpoint_filepath='best_model.h5',
         early_stopping_patience=7,
         lr_reduction_patience=3,
@@ -109,7 +152,25 @@ def train_model(
         min_lr=1e-6,
         additional_callbacks=None
 ):
+    """
+    Addestra il modello con early stopping e riduzione del learning rate.
 
+    Args:
+        model: Modello TensorFlow da addestrare
+        train_dataset: Dataset di addestramento
+        validation_dataset: Dataset di validazione
+        epochs: Numero massimo di epoche di addestramento
+        batch_size: Dimensione del batch (opzionale)
+        checkpoint_filepath: Percorso dove salvare il modello migliore
+        early_stopping_patience: Numero di epoche prima di interrompere l'addestramento
+        lr_reduction_patience: Numero di epoche prima di ridurre il learning rate
+        lr_reduction_factor: Fattore di riduzione del learning rate
+        min_lr: Learning rate minimo
+        additional_callbacks: Callback aggiuntivi
+
+    Returns:
+        Storia dell'addestramento
+    """
     # Lista base di callback
     callbacks = [
         EarlyStopping(
@@ -143,7 +204,9 @@ def train_model(
         train_dataset,
         validation_data=validation_dataset,
         epochs=epochs,
-        callbacks=callbacks
+        batch_size=batch_size,  # Aggiunto batch_size
+        callbacks=callbacks,
+        verbose=1  # Aggiunto verbose per mostrare la barra di progresso
     )
 
     return history
@@ -155,15 +218,15 @@ def load_and_evaluate_model(
         custom_objects=None
 ):
     """
-    Carica un modello salvato e lo valuta sul test set.
+    Carica un modello salvato e lo valuta su un dataset di test.
 
     Args:
         model_path: Percorso del modello salvato
         test_dataset: Dataset di test
-        custom_objects: Dizionario di oggetti personalizzati
+        custom_objects: Oggetti personalizzati per il caricamento del modello
 
     Returns:
-        Risultati della valutazione (dict)
+        Dizionario con le metriche di valutazione
     """
     model = tf.keras.models.load_model(model_path, custom_objects=custom_objects)
     results = model.evaluate(test_dataset, verbose=1)
@@ -172,4 +235,20 @@ def load_and_evaluate_model(
     for metric_name, value in zip(model.metrics_names, results):
         metrics[metric_name] = value
 
-    return metrics
+    return metrics, model  # Restituisce anche il modello caricato
+
+
+def predict_with_model(model, data, batch_size=32):
+    """
+    Esegue previsioni utilizzando il modello.
+
+    Args:
+        model: Modello TensorFlow
+        data: Dati su cui eseguire le previsioni
+        batch_size: Dimensione del batch per le previsioni
+
+    Returns:
+        Previsioni del modello
+    """
+    predictions = model.predict(data, batch_size=batch_size, verbose=1)
+    return predictions
