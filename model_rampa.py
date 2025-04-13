@@ -140,13 +140,13 @@ def create_classification_model(
     return model
 
 
-def train_model(
+def  train_model(
         model,
         train_dataset,
         validation_dataset,
+        checkpoint_filepath,
         epochs=50,
         batch_size=None,  # Aggiunto parametro batch_size
-        checkpoint_filepath='best_model.h5',
         early_stopping_patience=7,
         lr_reduction_patience=3,
         lr_reduction_factor=0.2,
