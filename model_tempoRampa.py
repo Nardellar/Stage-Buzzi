@@ -83,6 +83,7 @@ def create_classification_model(
         Modello TensorFlow compilato
     """
 
+
     # Verifica dimensioni di input valide per VGG16
     min_dim = 32
     if input_shape[0] < min_dim or input_shape[1] < min_dim:
@@ -254,24 +255,26 @@ def predict_with_model(model, data, batch_size=32):
     return predictions
 
 
-
-
 def main():
 
-    train_ds, val_ds = dataset_organization.get_dataset("temperatura")
+    train_ds, val_ds = dataset_organization.get_dataset("tempo rampa")
 
     mapping_dict = {
-        1300: 0,
-        1400: 1,
-        1500: 2
+        9: 0,
+        14: 1,
+        18: 2,
+        35: 3,
+        55: 4
     }
 
     train_ds = train_ds.map(dataset_organization.remap_labels(mapping_dict))
     val_ds = val_ds.map(dataset_organization.remap_labels(mapping_dict))
 
+
+
     model = create_classification_model(
         input_shape=(112, 112, 3),
-        num_classes=3,  # per esempio
+        num_classes=5,  # per esempio
         base_trainable=False
     )
 
@@ -280,11 +283,11 @@ def main():
         train_dataset=train_ds,
         validation_dataset=val_ds,
         epochs=30,
-        checkpoint_filepath='Models/Temperatura/best_modello_temperatura..h5'
+        checkpoint_filepath='Models/TempoRampa/best_modello_tempoRampa.h5'
     )
 
     # Per esempio, salva il modello finale
-    model.save("Models/Temperatura/modello_temperatura.h5")
+    model.save("Models/TempoRampa/best_modello_tempoRampa.h5")
 
 
 if __name__ == "__main__":
