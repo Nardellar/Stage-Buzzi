@@ -155,22 +155,25 @@ def show_images(ds, max_images=32):
 
 
 
-
-
 def remap_labels(mapping):
     def map_fn(images, labels):
         labels = tf.numpy_function(
-            lambda l: np.array([mapping.get(int(v), -1) for v in l]),
+            lambda l: np.array([
+                mapping.get(round(v), -1)  # Arrottonda al numero intero più vicino
+                for v in l
+            ], dtype=np.int32),
             [labels],
-            tf.int64
+            tf.int32  # Tipo corretto
         )
-        labels.set_shape([None])  # Imposta la forma attesa, es: (batch_size,)
+        labels.set_shape([None])  # Imposta la forma attesa
         return images, labels
     return map_fn
 
 
+
+
 # === BLOCCO PRINCIPALE ===
-def get_dataset():
+def get_dataset(attributo):
 
     download_and_extract()  # Scarica ed estrae il dataset se non già presente
 
@@ -201,13 +204,13 @@ def get_dataset():
     print("📁 Classi trovate per la validazione:", validation_dataset.class_names)  # Stampa le classi/ID trovate
 
 
-
-    attributo = input(
-        "🔎 Inserisci l'attributo da ricercare: "
-    ).strip()  # Richiede input utente
     if not attributo:
-        print("❌ Errore: attributo non inserito.")
-        sys.exit()
+        attributo = input(
+            "🔎 Inserisci l'attributo da ricercare: "
+        ).strip()  # Richiede input utente
+        if not attributo:
+            print("❌ Errore: attributo non inserito.")
+            sys.exit()
 
     # Verifica che l'attributo esista nel CSV
     if attributo.lower() not in data_frame.columns.str.lower():
@@ -244,16 +247,12 @@ def get_dataset():
     '''
 
 
-    mapping_dict = {
-        1300: 0,
-        1400: 1,
-        1500: 2
-    }
+
+
 
     print(train_dataset)
 
-    train_dataset = train_dataset.map(remap_labels(mapping_dict))
-    validation_dataset = validation_dataset.map(remap_labels(mapping_dict))
+
 
 
     return train_dataset, validation_dataset
