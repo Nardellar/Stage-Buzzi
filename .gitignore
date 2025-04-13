@@ -18,5 +18,3 @@ __pycache__/
 # 🧪 Jupyter notebook checkpoints
 .ipynb_checkpoints/
 
-# 📦 Ignora il file ZIP del dataset se presente
-/Esperimenti/EXP14/
