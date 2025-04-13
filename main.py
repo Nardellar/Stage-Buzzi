@@ -19,11 +19,11 @@ def main():
         train_dataset=train_ds,
         validation_dataset=val_ds,
         epochs=30,
-        checkpoint_filepath='Esperimenti/best_modello_temperatura.h5'
+        checkpoint_filepath='Esperimenti/best_modello_temperatura.keras'
     )
 
     # Per esempio, salva il modello finale
-    model.save("Esperimenti/modello_temperatura.h5")
+    model.save("Esperimenti/modello_temperatura.keras")
 
 
 if __name__ == "__main__":

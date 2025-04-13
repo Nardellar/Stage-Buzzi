@@ -2,7 +2,7 @@ import tensorflow as tf
 from tensorflow.keras.applications import VGG16
 from tensorflow.keras import layers, models
 from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau, ModelCheckpoint
-from tensorflow.keras.optimizers.legacy import Adam
+from tensorflow.keras.optimizers import Adam
 
 
 
