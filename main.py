@@ -1,5 +1,5 @@
 import dataset_organization
-from model import create_classification_model, train_model
+from model_temperatura import create_classification_model, train_model
 
 
 def main():
@@ -19,11 +19,11 @@ def main():
         train_dataset=train_ds,
         validation_dataset=val_ds,
         epochs=30,
-        checkpoint_filepath='best_model.h5'
+        checkpoint_filepath='Esperimenti/best_modello_temperatura.h5'
     )
 
     # Per esempio, salva il modello finale
-    model.save("modello_finale.h5")
+    model.save("Esperimenti/modello_temperatura.h5")
 
 
 if __name__ == "__main__":
