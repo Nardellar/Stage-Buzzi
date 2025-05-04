@@ -2,7 +2,7 @@ import tensorflow as tf
 from tensorflow.keras.applications import VGG16
 from tensorflow.keras import layers, models
 from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau, ModelCheckpoint
-from tensorflow.keras.optimizers.legacy import Adam
+from tensorflow.keras import optimizers
 
 
 def _build_fc_layers(
@@ -85,7 +85,7 @@ def create_classification_model(
 
     # Usa l'ottimizzatore fornito o crea Adam con LR specificato
     if optimizer is None:
-        optimizer = Adam(learning_rate=learning_rate)
+        optimizer = optimizers.Adam(learning_rate=learning_rate)
 
     # Compila il modello con la loss appropriata
     model.compile(

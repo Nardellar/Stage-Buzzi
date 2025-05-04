@@ -170,40 +170,44 @@ def remap_labels(mapping):
 
 
 # === BLOCCO PRINCIPALE ===
+#Prepara e restituisce il train dataset ed il validation dataset
 def get_dataset():
 
-    download_and_extract()  # Scarica ed estrae il dataset se non già presente
+    download_and_extract()  # Scarica ed estrae le immagini ESPERIMENTI se non già presenti
 
     # Controlla che il file CSV esista
     if not os.path.exists(CSV_FILE):
         print(f"❌ Errore: File CSV '{CSV_FILE}' non trovato.")
         sys.exit(1)
 
-    data_frame = pd.read_csv(CSV_FILE)  # Legge il CSV e salva nel dataframe
+    #Legge il CSV e salva nel dataframe pandas
+    #ora conterrà gli ID degli esperimenti (es:EXP01,EXP02...) e tutti i loro attributi (es.temperatura,...)
+    data_frame = pd.read_csv(CSV_FILE)
 
-    # Carica le immagini come dataset TensorFlow
+
+    # Carica le immagini nel dataset TensorFlow usato per training.
     train_dataset = tf.keras.utils.image_dataset_from_directory(
         DATASET_DIR,  # la cartella Esperimenti
-        labels="inferred",  # Inferisce le etichette dal nome delle cartelle
-        label_mode="int",  # Le etichette sono numeri interi
+        labels="inferred",  # Inferisce le etichette da dare alle immagini dal nome delle cartelle
+        label_mode="int",  # Le etichette sono rappresentate da numeri interi
         image_size=(224, 224),  # Ridimensiona le immagini e ritaglia i lati per togliere l'etichetta
         batch_size=32,
-        seed=42,  # deve essere uguale al precedente
-        crop_to_aspect_ratio = True,
+        seed=42,  #Seed per casualità delle immagini scelte come training set. Lo definiamo per ottenere sempre le stesse immagini train per rendere piu' comparabili i risultati dei vari modelli che tentiamo
+        crop_to_aspect_ratio = True, #assicura che l'immagine mantenga proporzioni simili
         validation_split = 0.2,  # Percentuale di split per la validation
         subset = "training",  # Specifica che questo dataset è la sezione 'training'
     )
-
+    # Carica le immagini nel dataset TensorFlow usato per validation.
     validation_dataset = tf.keras.utils.image_dataset_from_directory(
         DATASET_DIR,  # la cartella Esperimenti
-        labels="inferred",  # Inferisce le etichette dal nome delle cartelle
-        label_mode="int",  # Le etichette sono numeri interi
-        image_size=(224, 224),  # Ridimensiona le immagini e ritaglia i lati per togliere l'etichetta
+        labels="inferred",
+        label_mode="int",
+        image_size=(224, 224),
         batch_size=32,
-        seed=42,  # deve essere uguale al precedente
+        seed=42,  # uguale al train set
         crop_to_aspect_ratio=True,
         validation_split=0.2,  # Percentuale di split per la validation
-        subset="validation",  # Specifica che questo dataset è la sezione 'training'
+        subset="validation",  # Specifica che questo dataset è la sezione 'validation'
     )
 
 
@@ -211,7 +215,7 @@ def get_dataset():
     print("📁 Classi trovate per la validazione:", validation_dataset.class_names)  # Stampa le classi/ID trovate
 
 
-
+    #richiesta input utente
     attributo = input(
         "🔎 Inserisci l'attributo da ricercare: "
     ).strip()  # Richiede input utente
@@ -224,7 +228,7 @@ def get_dataset():
         print(f"❌ Errore: l'attributo '{attributo}' non esiste nel CSV.")
         sys.exit()
 
-    # Mappa le immagini al valore dell'attributo scelto
+    #per ogni immagine si recupera il suo ID (EXP01,...) da train_dataset stesso e gli si associa il valore dell'attributo scelto da utente (grazie al dataframe creato all'inizio che associa ID con attributi)
     train_dataset = map_labels_to_attribute(
         train_dataset, data_frame, attributo
     )
@@ -232,9 +236,10 @@ def get_dataset():
     validation_dataset = map_labels_to_attribute(
         validation_dataset, data_frame, attributo
     )
-
+    #viene calcolata la media e la deviazione standard delle immagini del training set
     train_dataset, validation_dataset = standardize_dataset(train_dataset, validation_dataset)
 
+    #questo blocco visualizza le immagini
     '''
     if train_dataset is not None:
         print(
@@ -253,15 +258,17 @@ def get_dataset():
         print("❌ Nessuna immagine con valore valido.")
     '''
 
-
+    #mappa i valori di temperatura ad etichette numeriche (0,1,2)
     mapping_dict = {
         1300: 0,
         1400: 1,
         1500: 2
     }
 
-    print(train_dataset)
+    #stampa l'oggetto tensorflow train_dataset. lo usiamo per debugging
+    print(train_dataset + "\n")
 
+    #applica la mappatura delle etichette ai dataset (1300:1, 1400:2, 1500:3)
     train_dataset = train_dataset.map(remap_labels(mapping_dict))
     validation_dataset = validation_dataset.map(remap_labels(mapping_dict))
 
