@@ -1,5 +1,7 @@
 # 🧠 Ignora il dataset locale (le immagini)
 Esperimenti/
+#Ignora il CSV
+esperimenti.csv
 
 # 🐍 Ignora l’ambiente virtuale
 .venv/
@@ -17,6 +19,3 @@ __pycache__/
 
 # 🧪 Jupyter notebook checkpoints
 .ipynb_checkpoints/
-
-# 📦 Ignora il file ZIP del dataset se presente
-/Esperimenti/EXP14/
