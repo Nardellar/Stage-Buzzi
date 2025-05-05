@@ -18,6 +18,7 @@ def build_fc_layers(
     x = inputs
     assert len(units_list) == len(dropout_rates), "units_list e dropout_rates devono avere la stessa lunghezza"
 
+
     for units, dr in zip(units_list, dropout_rates):
         x = layers.Dense(units, activation=activation)(x)
 
