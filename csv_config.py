@@ -5,7 +5,7 @@ class_attributes = {
     "Esperimenti": [
         {
             "ID": "EXP01",
-            "Rampa": 25,
+            "rampa": 25,
             "temperatura": 1400,
             "tempo": 30,
             "raffreddamento": 0,
@@ -14,7 +14,7 @@ class_attributes = {
         },
         {
             "ID": "EXP02",
-            "Rampa": 25,
+            "rampa": 25,
             "temperatura": 1400,
             "tempo": 30,
             "raffreddamento": 1,
@@ -23,7 +23,7 @@ class_attributes = {
         },
         {
             "ID": "EXP03",
-            "Rampa": 25,
+            "rampa": 25,
             "temperatura": 1400,
             "tempo": 30,
             "raffreddamento": 0,
@@ -32,7 +32,7 @@ class_attributes = {
         },
         {
             "ID": "EXP04",
-            "Rampa": 25,
+            "rampa": 25,
             "temperatura": 1400,
             "tempo": 30,
             "raffreddamento": 1,
@@ -41,7 +41,7 @@ class_attributes = {
         },
         {
             "ID": "EXP05",
-            "Rampa": 40,
+            "rampa": 40,
             "temperatura": 1500,
             "tempo": 45,
             "raffreddamento": 1,
@@ -50,7 +50,7 @@ class_attributes = {
         },
         {
             "ID": "EXP06",
-            "Rampa": 10,
+            "rampa": 10,
             "temperatura": 1300,
             "tempo": 15,
             "raffreddamento": 0,
@@ -59,7 +59,7 @@ class_attributes = {
         },
         {
             "ID": "EXP07",
-            "Rampa": 25,
+            "rampa": 25,
             "temperatura": 1400,
             "tempo": 30,
             "raffreddamento": 1,
@@ -68,7 +68,7 @@ class_attributes = {
         },
         {
             "ID": "EXP08",
-            "Rampa": 25,
+            "rampa": 25,
             "temperatura": 1400,
             "tempo": 30,
             "raffreddamento": 0,
@@ -77,7 +77,7 @@ class_attributes = {
         },
         {
             "ID": "EXP09",
-            "Rampa": 40,
+            "rampa": 40,
             "temperatura": 1300,
             "tempo": 15,
             "raffreddamento": 1,
@@ -86,7 +86,7 @@ class_attributes = {
         },
         {
             "ID": "EXP10",
-            "Rampa": 10,
+            "rampa": 10,
             "temperatura": 1500,
             "tempo": 45,
             "raffreddamento": 0,
@@ -95,7 +95,7 @@ class_attributes = {
         },
         {
             "ID": "EXP11",
-            "Rampa": 40,
+            "rampa": 40,
             "temperatura": 1500,
             "tempo": 15,
             "raffreddamento": 0,
@@ -104,7 +104,7 @@ class_attributes = {
         },
         {
             "ID": "EXP12",
-            "Rampa": 10,
+            "rampa": 10,
             "temperatura": 1300,
             "tempo": 45,
             "raffreddamento": 1,
@@ -113,7 +113,7 @@ class_attributes = {
         },
         {
             "ID": "EXP13",
-            "Rampa": 10,
+            "rampa": 10,
             "temperatura": 1500,
             "tempo": 15,
             "raffreddamento": 1,
@@ -122,7 +122,7 @@ class_attributes = {
         },
         {
             "ID": "EXP14",
-            "Rampa": 40,
+            "rampa": 40,
             "temperatura": 1300,
             "tempo": 45,
             "raffreddamento": 0,
