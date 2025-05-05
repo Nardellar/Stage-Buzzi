@@ -11,7 +11,6 @@ from tensorflow.keras import layers, models
 
 
 
-
 # === CONFIGURAZIONE ===
 DATASET_DIR = "Esperimenti"  # Cartella in cui verranno estratte le immagini
 CSV_FILE = "esperimenti.csv"  # Nome del file CSV contenente gli attributi
@@ -35,7 +34,8 @@ def download_and_extract():
 
 
 def map_labels_to_attribute(ds, df, attribute_name):
-
+    import numpy as np
+    import tensorflow as tf
 
     attribute_name = attribute_name.strip().lower()  # Normalizza il nome dell'attributo
 
@@ -155,6 +155,8 @@ def show_images(ds, max_images=32):
 
 
 
+
+
 def remap_labels(mapping):
     def map_fn(images, labels):
         labels = tf.numpy_function(
@@ -170,19 +172,20 @@ def remap_labels(mapping):
     return map_fn
 
 
-
-
 # === BLOCCO PRINCIPALE ===
+#Prepara e restituisce il train dataset ed il validation dataset
 def get_dataset(attributo):
 
-    download_and_extract()  # Scarica ed estrae il dataset se non già presente
+    download_and_extract()  # Scarica ed estrae le immagini ESPERIMENTI se non già presenti
 
     # Controlla che il file CSV esista
     if not os.path.exists(CSV_FILE):
         print(f"❌ Errore: File CSV '{CSV_FILE}' non trovato.")
         sys.exit(1)
 
-    data_frame = pd.read_csv(CSV_FILE)  # Legge il CSV e salva nel dataframe
+    #Legge il CSV e salva nel dataframe pandas
+    #ora conterrà gli ID degli esperimenti (es:EXP01,EXP02...) e tutti i loro attributi (es.temperatura,...)
+    data_frame = pd.read_csv(CSV_FILE)
 
     image_size = (112, 112)
 
@@ -204,20 +207,20 @@ def get_dataset(attributo):
     print("📁 Classi trovate per la validazione:", validation_dataset.class_names)  # Stampa le classi/ID trovate
 
 
+    #richiesta input utente
+    attributo = input(
+        "🔎 Inserisci l'attributo da ricercare: "
+    ).strip()  # Richiede input utente
     if not attributo:
-        attributo = input(
-            "🔎 Inserisci l'attributo da ricercare: "
-        ).strip()  # Richiede input utente
-        if not attributo:
-            print("❌ Errore: attributo non inserito.")
-            sys.exit()
+        print("❌ Errore: attributo non inserito.")
+        sys.exit()
 
     # Verifica che l'attributo esista nel CSV
     if attributo.lower() not in data_frame.columns.str.lower():
         print(f"❌ Errore: l'attributo '{attributo}' non esiste nel CSV.")
         sys.exit()
 
-    # Mappa le immagini al valore dell'attributo scelto
+    #per ogni immagine si recupera il suo ID (EXP01,...) da train_dataset stesso e gli si associa il valore dell'attributo scelto da utente (grazie al dataframe creato all'inizio che associa ID con attributi)
     train_dataset = map_labels_to_attribute(
         train_dataset, data_frame, attributo
     )
@@ -225,9 +228,10 @@ def get_dataset(attributo):
     validation_dataset = map_labels_to_attribute(
         validation_dataset, data_frame, attributo
     )
-
+    #viene calcolata la media e la deviazione standard delle immagini del training set
     train_dataset, validation_dataset = standardize_dataset(train_dataset, validation_dataset)
 
+    #questo blocco visualizza le immagini
     '''
     if train_dataset is not None:
         print(
@@ -250,7 +254,8 @@ def get_dataset(attributo):
 
 
 
-    print(train_dataset)
+    #stampa l'oggetto tensorflow train_dataset. lo usiamo per debugging
+    print(train_dataset + "\n")
 
 
 
