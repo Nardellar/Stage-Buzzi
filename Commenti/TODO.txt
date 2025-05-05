@@ -1,0 +1,5 @@
+- chiedere al prof perchè fare la funzione che estrae immagini dato un certo attributo se tanto poi la classificazione da fare è multiclasse !? Non sarebbe meglio avere subito immagini con tutti gli attributi??
+
+- augmentation delle immagini
+
+- 

@@ -160,18 +160,21 @@ def show_images(ds, max_images=32):
 def remap_labels(mapping):
     def map_fn(images, labels):
         labels = tf.numpy_function(
-            lambda l: np.array([mapping.get(int(v), -1) for v in l]),
+            lambda l: np.array([
+                mapping.get(round(v), -1)  # Arrottonda al numero intero più vicino
+                for v in l
+            ], dtype=np.int32),
             [labels],
-            tf.int64
+            tf.int32  # Tipo corretto
         )
-        labels.set_shape([None])  # Imposta la forma attesa, es: (batch_size,)
+        labels.set_shape([None])  # Imposta la forma attesa
         return images, labels
     return map_fn
 
 
 # === BLOCCO PRINCIPALE ===
 #Prepara e restituisce il train dataset ed il validation dataset
-def get_dataset():
+def get_dataset(attributo):
 
     download_and_extract()  # Scarica ed estrae le immagini ESPERIMENTI se non già presenti
 
@@ -184,30 +187,19 @@ def get_dataset():
     #ora conterrà gli ID degli esperimenti (es:EXP01,EXP02...) e tutti i loro attributi (es.temperatura,...)
     data_frame = pd.read_csv(CSV_FILE)
 
+    image_size = (112, 112)
 
-    # Carica le immagini nel dataset TensorFlow usato per training.
-    train_dataset = tf.keras.utils.image_dataset_from_directory(
+    # Carica le immagini come dataset TensorFlow
+    train_dataset, validation_dataset = tf.keras.utils.image_dataset_from_directory(
         DATASET_DIR,  # la cartella Esperimenti
-        labels="inferred",  # Inferisce le etichette da dare alle immagini dal nome delle cartelle
-        label_mode="int",  # Le etichette sono rappresentate da numeri interi
-        image_size=(224, 224),  # Ridimensiona le immagini e ritaglia i lati per togliere l'etichetta
+        labels="inferred",  # Inferisce le etichette dal nome delle cartelle
+        label_mode="int",  # Le etichette sono numeri interi
+        image_size=image_size,  # Ridimensiona le immagini e ritaglia i lati per togliere l'etichetta
         batch_size=32,
-        seed=42,  #Seed per casualità delle immagini scelte come training set. Lo definiamo per ottenere sempre le stesse immagini train per rendere piu' comparabili i risultati dei vari modelli che tentiamo
-        crop_to_aspect_ratio = True, #assicura che l'immagine mantenga proporzioni simili
+        seed=42,  # deve essere uguale al precedente
+        crop_to_aspect_ratio = True,
         validation_split = 0.2,  # Percentuale di split per la validation
-        subset = "training",  # Specifica che questo dataset è la sezione 'training'
-    )
-    # Carica le immagini nel dataset TensorFlow usato per validation.
-    validation_dataset = tf.keras.utils.image_dataset_from_directory(
-        DATASET_DIR,  # la cartella Esperimenti
-        labels="inferred",
-        label_mode="int",
-        image_size=(224, 224),
-        batch_size=32,
-        seed=42,  # uguale al train set
-        crop_to_aspect_ratio=True,
-        validation_split=0.2,  # Percentuale di split per la validation
-        subset="validation",  # Specifica che questo dataset è la sezione 'validation'
+        subset = "both",  # Specifica che questo dataset è la sezione 'training'
     )
 
 
@@ -258,19 +250,14 @@ def get_dataset():
         print("❌ Nessuna immagine con valore valido.")
     '''
 
-    #mappa i valori di temperatura ad etichette numeriche (0,1,2)
-    mapping_dict = {
-        1300: 0,
-        1400: 1,
-        1500: 2
-    }
+
+
+
 
     #stampa l'oggetto tensorflow train_dataset. lo usiamo per debugging
     print(train_dataset + "\n")
 
-    #applica la mappatura delle etichette ai dataset (1300:1, 1400:2, 1500:3)
-    train_dataset = train_dataset.map(remap_labels(mapping_dict))
-    validation_dataset = validation_dataset.map(remap_labels(mapping_dict))
+
 
 
     return train_dataset, validation_dataset
