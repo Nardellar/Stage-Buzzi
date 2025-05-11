@@ -208,9 +208,10 @@ def get_dataset(attributo):
 
 
     #richiesta input utente
-    attributo = input(
-        "🔎 Inserisci l'attributo da ricercare: "
-    ).strip()  # Richiede input utente
+    if not attributo:
+        attributo = input(
+            "🔎 Inserisci l'attributo da ricercare: "
+        ).strip()  # Richiede input utente
     if not attributo:
         print("❌ Errore: attributo non inserito.")
         sys.exit()
@@ -255,7 +256,7 @@ def get_dataset(attributo):
 
 
     #stampa l'oggetto tensorflow train_dataset. lo usiamo per debugging
-    print(train_dataset + "\n")
+    print(train_dataset)
 
 
 
