@@ -1,4 +1,3 @@
-import tensorflow as tf
 import tensorflow_hub as hub
 from tensorflow.keras import layers, models
 from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau, ModelCheckpoint
