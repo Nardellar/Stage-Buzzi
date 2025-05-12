@@ -156,7 +156,8 @@ def show_images(ds, max_images=32):
 
 
 
-
+# Rimappa i label da float a interi tramite round() e una mappa (mapping).
+#Non usato
 def remap_labels(mapping):
     def map_fn(images, labels):
         labels = tf.numpy_function(
@@ -208,10 +209,9 @@ def get_dataset(attributo):
 
 
     #richiesta input utente
-    if not attributo:
-        attributo = input(
-            "🔎 Inserisci l'attributo da ricercare: "
-        ).strip()  # Richiede input utente
+    attributo = input(
+        "🔎 Inserisci l'attributo da ricercare: "
+    ).strip()  # Richiede input utente
     if not attributo:
         print("❌ Errore: attributo non inserito.")
         sys.exit()
@@ -256,7 +256,7 @@ def get_dataset(attributo):
 
 
     #stampa l'oggetto tensorflow train_dataset. lo usiamo per debugging
-    print(train_dataset)
+    print(train_dataset + "\n")
 
 
 
