@@ -4,7 +4,7 @@ import model_script
 
 def main():
 
-    train_ds, val_ds = dataset_organization.get_dataset("tempo totale")
+    train_ds, val_ds = dataset_organization.get_dataset("tempo")
 
     mapping_dict = {
         15: 0,

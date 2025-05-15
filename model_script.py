@@ -144,7 +144,7 @@ def train_model(
         validation_dataset,
         epochs=50,
         batch_size=None,  # Aggiunto parametro batch_size
-        early_stopping_patience=7,
+        early_stopping_patience=10,
         lr_reduction_patience=3,
         lr_reduction_factor=0.2,
         min_lr=1e-6,
