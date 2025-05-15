@@ -172,6 +172,44 @@ def remap_labels(mapping):
     return map_fn
 
 
+from collections import defaultdict
+import random
+
+def balance_dataset(dataset):
+    """
+    Bilancia le classi del dataset via oversampling.
+    """
+    # Raccoglie le immagini per classe
+    class_data = defaultdict(list)
+
+    for image, label in dataset.unbatch():
+        class_index = int(label.numpy())
+        class_data[class_index].append((image, label))
+
+    # Trova la classe con più campioni
+    max_count = max(len(samples) for samples in class_data.values())
+
+    balanced_samples = []
+
+    for class_index, samples in class_data.items():
+        # Ripeti i sample finché non raggiungi max_count
+        repeated = samples.copy()
+        while len(repeated) < max_count:
+            repeated.extend(random.sample(samples, min(max_count - len(repeated), len(samples))))
+        balanced_samples.extend(repeated)
+
+    # Shuffle finale
+    random.shuffle(balanced_samples)
+
+    # Ricostruisci un nuovo dataset bilanciato
+    images, labels = zip(*balanced_samples)
+    images = tf.stack(images)
+    labels = tf.convert_to_tensor(labels)
+    return tf.data.Dataset.from_tensor_slices((images, labels)).batch(32)
+
+
+
+
 # === BLOCCO PRINCIPALE ===
 #Prepara e restituisce il train dataset ed il validation dataset
 def get_dataset(attributo):
@@ -226,11 +264,33 @@ def get_dataset(attributo):
         train_dataset, data_frame, attributo
     )
 
+
+    if train_dataset is not None:
+        print("🔁 Bilanciamento del dataset in corso...")
+        train_dataset = balance_dataset(train_dataset)
+
+    # Estrai le classi presenti nel dataset bilanciato
+    from collections import Counter
+
+    # Conta il numero di immagini per ciascuna classe nel training set
+    label_counter = Counter()
+    for _, labels in train_dataset.unbatch():
+        label = int(labels.numpy())
+        label_counter[label] += 1
+
+    print("\n📊 Numero di immagini per classe nel training set (bilanciato):")
+    for label, count in sorted(label_counter.items()):
+        print(f"  Classe {label}: {count} immagini")
+
+
     validation_dataset = map_labels_to_attribute(
         validation_dataset, data_frame, attributo
     )
+
+
     #viene calcolata la media e la deviazione standard delle immagini del training set
     train_dataset, validation_dataset = standardize_dataset(train_dataset, validation_dataset)
+
 
     #questo blocco visualizza le immagini
     '''
@@ -250,14 +310,6 @@ def get_dataset(attributo):
     else:
         print("❌ Nessuna immagine con valore valido.")
     '''
-
-
-
-
-
-    #stampa l'oggetto tensorflow train_dataset. lo usiamo per debugging
-    print(train_dataset)
-
 
 
 
