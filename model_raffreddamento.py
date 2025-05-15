@@ -9,7 +9,7 @@ def main():
 
     model = model_script.create_classification_model(
         input_shape=(112, 112, 3),
-        num_classes=5,  # per esempio
+        num_classes=2,  # per esempio
         base_trainable=False
     )
 
