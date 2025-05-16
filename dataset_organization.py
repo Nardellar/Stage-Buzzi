@@ -159,15 +159,26 @@ def show_images(ds, max_images=32):
 
 def remap_labels(mapping):
     def map_fn(images, labels):
-        labels = tf.numpy_function(
-            lambda l: np.array([
-                mapping.get(round(v), -1)  # Arrottonda al numero intero più vicino
-                for v in l
-            ], dtype=np.int32),
-            [labels],
-            tf.int32  # Tipo corretto
-        )
-        labels.set_shape([None])  # Imposta la forma attesa
+        def map_label(l):
+            result = []
+            for v in l:
+                if isinstance(v, bytes):
+                    key = v.decode("utf-8")
+                elif isinstance(v, (str, np.str_)):
+                    key = v
+                elif isinstance(v, (np.integer, int)):
+                    class_names = list(mapping.keys())
+                    if 0 <= v < len(class_names):
+                        key = class_names[v]
+                    else:
+                        key = None
+                else:
+                    key = None
+                result.append(mapping.get(key, -1))
+            return np.array(result, dtype=np.int32)
+
+        labels = tf.numpy_function(map_label, [labels], tf.int32)
+        labels.set_shape([None])
         return images, labels
     return map_fn
 
@@ -244,6 +255,13 @@ def get_dataset(attributo):
     print("\n📁 Classi trovate per il training:", train_dataset.class_names)  # Stampa le classi/ID trovate
     print("📁 Classi trovate per la validazione:", validation_dataset.class_names)  # Stampa le classi/ID trovate
 
+
+    if attributo == "id":
+
+        train_dataset = balance_dataset(train_dataset)
+        train_dataset, validation_dataset = standardize_dataset(train_dataset, validation_dataset)
+
+        return train_dataset, validation_dataset
 
     #richiesta input utente
     if not attributo:
