@@ -3,7 +3,6 @@ from tensorflow.keras.applications import VGG16
 from tensorflow.keras import layers, models
 from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau, ModelCheckpoint
 from tensorflow.keras.optimizers import Adam
-import dataset_organization
 
 
 # 224 224 con 10 epoche mi da 0.047, 0.98, 0.17, 0.95
