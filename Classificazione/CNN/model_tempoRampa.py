@@ -1,4 +1,4 @@
-import dataset_organization
+from Classificazione import dataset_organization
 import model_script
 
 def main():

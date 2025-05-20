@@ -2,7 +2,8 @@ import tensorflow_hub as hub
 from tensorflow.keras import layers, models
 from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau, ModelCheckpoint
 from tensorflow.keras.optimizers import Adam
-import dataset_organization
+from Classificazione import dataset_organization
+
 
 def build_fc_layers(
         inputs,

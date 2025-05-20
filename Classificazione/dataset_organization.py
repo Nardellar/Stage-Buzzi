@@ -12,7 +12,7 @@ from tensorflow.keras import layers, models
 
 
 # === CONFIGURAZIONE ===
-DATASET_DIR = "Esperimenti"  # Cartella in cui verranno estratte le immagini
+DATASET_DIR = "../Esperimenti"  # Cartella in cui verranno estratte le immagini
 CSV_FILE = "esperimenti.csv"  # Nome del file CSV contenente gli attributi
 ZIP_NAME = "esperimenti.zip"  # Nome del file zip da scaricare da Google Drive
 GDRIVE_ID = "1JxuABW728R8n_nz2VONDSOIiWzPFO64a"  # ID pubblico del file su Google Drive

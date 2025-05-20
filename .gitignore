@@ -1,7 +1,7 @@
 # 🧠 Ignora il dataset locale (le immagini)
 Esperimenti/
 #Ignora il CSV
-esperimenti.csv
+Classificazione/esperimenti.csv
 
 # 🐍 Ignora l’ambiente virtuale
 .venv/
