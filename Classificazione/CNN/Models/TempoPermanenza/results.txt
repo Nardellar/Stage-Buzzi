@@ -1,0 +1,2 @@
+accuracy: 0.8357 - loss: 0.4555 - val_accuracy: 0.7143 - val_loss: 0.8209
+rivedi bene perchè qua mi sa che c'è un problema in questo oversampling

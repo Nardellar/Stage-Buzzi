@@ -1,0 +1,1 @@
+accuracy: 0.8112 - loss: 0.5374 - val_accuracy: 0.5500 - val_loss: 1.2405 - learning_rate: 0.0010
