@@ -41,7 +41,7 @@ def create_transformer_classification_model(
         learning_rate=0.001,
         transformer_url="https://tfhub.dev/google/vit_base_patch16_224/classification/1"):
     """
-    Crea un modello di classificazione basato su Vision Transformer (ViT).
+    Crea un modello di classificazione basato su Vision Transformer (SAM).
 
     Args:
         input_shape: Forma dell'input (altezza, larghezza, canali)
@@ -53,7 +53,7 @@ def create_transformer_classification_model(
         fc_activation: Funzione di attivazione per i livelli FC
         use_batch_norm: Se utilizzare la normalizzazione batch
         learning_rate: Tasso di apprendimento per l'ottimizzatore Adam
-        transformer_url: URL del modello ViT da TensorFlow Hub
+        transformer_url: URL del modello SAM da TensorFlow Hub
 
     Returns:
         Modello TensorFlow compilato
@@ -199,7 +199,7 @@ def main():
         train_dataset=train_ds,
         validation_dataset=val_ds,
         epochs=30,
-        checkpoint_filepath='Models/Temperatura/best_modello_temperatura.h5'
+        checkpoint_filepath='CNN/Models/Temperatura/best_modello_temperatura.h5'
     )
 
     # Per esempio, salva il modello finale
