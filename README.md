@@ -16,11 +16,9 @@ This repository collects machine learning utilities for image classification and
    ```bash
    pip install -r requirements.txt
    ```
-2. Generate `esperimenti.csv` if it is not present:
-   ```bash
-   python Classificazione/csv_config.py
-   ```
-3. Run the classification models, for example:
+2. Run the classification models. The dataset utilities will
+   automatically create `esperimenti.csv` the first time you run them.
+   For example:
    ```bash
    python -m Classificazione.CNN.model_temperatura
    ```

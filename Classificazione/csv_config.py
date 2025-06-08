@@ -1,4 +1,5 @@
 import pandas as pd
+from pathlib import Path
 
 # Dati sperimentali in un dizionario
 class_attributes = {
@@ -132,7 +133,33 @@ class_attributes = {
     ]
 }
 
-# Creiamo il DataFrame a partire dal dizionario
-df = pd.DataFrame(class_attributes["Esperimenti"])
-# Salviamo il DataFrame normalizzato su un file CSV (opzionale, se desideri averlo su disco)
-df.to_csv("esperimenti.csv", index=False)
+
+def create_csv(csv_path: str | Path | None = None) -> Path:
+    """Generate the ``esperimenti.csv`` file.
+
+    Parameters
+    ----------
+    csv_path: str | Path | None, optional
+        Destination path for the CSV.  If ``None`` the file is written in the
+        project root.
+
+    Returns
+    -------
+    pathlib.Path
+        The full path of the generated CSV file.
+    """
+
+    df = pd.DataFrame(class_attributes["Esperimenti"])
+
+    if csv_path is None:
+        csv_path = Path(__file__).resolve().parent.parent / "esperimenti.csv"
+    else:
+        csv_path = Path(csv_path)
+
+    df.to_csv(csv_path, index=False)
+    return csv_path
+
+
+if __name__ == "__main__":
+    path = create_csv()
+    print(f"✅ File CSV creato: {path}")
