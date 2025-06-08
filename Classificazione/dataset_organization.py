@@ -167,11 +167,17 @@ def remap_labels(mapping):
                 elif isinstance(v, (str, np.str_)):
                     key = v
                 elif isinstance(v, (np.integer, int)):
-                    class_names = list(mapping.keys())
-                    if 0 <= v < len(class_names):
-                        key = class_names[v]
+                    # If the numeric label is present as a key in the mapping
+                    # dictionary treat it directly as the key, otherwise fall
+                    # back to interpreting it as an index of the mapping keys.
+                    if v in mapping:
+                        key = int(v)
                     else:
-                        key = None
+                        class_names = list(mapping.keys())
+                        if 0 <= v < len(class_names):
+                            key = class_names[v]
+                        else:
+                            key = None
                 else:
                     key = None
                 result.append(mapping.get(key, -1))
