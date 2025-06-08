@@ -9,6 +9,7 @@ import tensorflow as tf  # Per pipeline di immagini e modelli TensorFlow
 from matplotlib import pyplot as plt  # Per visualizzare immagini
 from tensorflow.keras import layers, models
 from pathlib import Path
+from . import csv_config
 
 
 
@@ -236,10 +237,10 @@ def get_dataset(attributo):
 
     download_and_extract()  # Scarica ed estrae le immagini ESPERIMENTI se non già presenti
 
-    # Controlla che il file CSV esista
+    # Controlla che il file CSV esista altrimenti lo genera
     if not CSV_FILE.exists():
-        print(f"❌ Errore: File CSV '{CSV_FILE}' non trovato.")
-        sys.exit(1)
+        print(f"⚠️ File CSV '{CSV_FILE}' non trovato. Creazione in corso...")
+        csv_config.create_csv(CSV_FILE)
 
     #Legge il CSV e salva nel dataframe pandas
     #ora conterrà gli ID degli esperimenti (es:EXP01,EXP02...) e tutti i loro attributi (es.temperatura,...)
