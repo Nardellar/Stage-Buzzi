@@ -9,30 +9,22 @@ import tensorflow as tf  # Per pipeline di immagini e modelli TensorFlow
 from matplotlib import pyplot as plt  # Per visualizzare immagini
 from tensorflow.keras import layers, models
 from pathlib import Path
+from . import data_utils
 
 
 
+BASE_DIR = Path(__file__).resolve().parent.parent
 # === CONFIGURAZIONE ===
 # Percorso base relativo a questo file (cioè la root del progetto)
-BASE_DIR = Path(__file__).resolve().parent.parent
-DATASET_DIR = BASE_DIR / "Esperimenti"  # Cartella in cui verranno estratte le immagini
-CSV_FILE = BASE_DIR / "esperimenti.csv"  # Nome del file CSV contenente gli attributi
-ZIP_NAME = BASE_DIR / "esperimenti.zip"  # Nome del file zip da scaricare da Google Drive
+DATASET_DIR = Path(os.getenv("DATASET_DIR", str(BASE_DIR / "Esperimenti")))
+CSV_FILE = Path(os.getenv("CSV_FILE", str(BASE_DIR / "esperimenti.csv")))
+ZIP_NAME = Path(os.getenv('ZIP_NAME', str(BASE_DIR / 'esperimenti.zip')))
 GDRIVE_ID = "1JxuABW728R8n_nz2VONDSOIiWzPFO64a"  # ID pubblico del file su Google Drive
 
 
 # === FUNZIONE PER SCARICARE ED ESTRARRE IL DATASET ===
 def download_and_extract():
-    if not DATASET_DIR.exists():  # Se la cartella non esiste, scarica il dataset
-        print("⬇️ Scaricamento del dataset da Google Drive...")
-        url = f"https://drive.google.com/uc?id={GDRIVE_ID}"  # Costruisce l'URL
-        gdown.download(url, str(ZIP_NAME), quiet=False)  # Scarica il file ZIP
-
-        print("📦 Estrazione in corso...")
-        with zipfile.ZipFile(ZIP_NAME, "r") as zip_ref:  # Apre il file ZIP
-            zip_ref.extractall(path=BASE_DIR)  # Estrae tutto nella cartella base
-        os.remove(ZIP_NAME)  # Elimina lo ZIP dopo l'estrazione
-        print("✅ Dataset pronto!")
+    data_utils.download_and_extract(DATASET_DIR, ZIP_NAME, GDRIVE_ID)
 
 
 
@@ -76,65 +68,12 @@ def map_labels_to_attribute(ds, df, attribute_name):
 
 
 def standardize_dataset(train_dataset, validation_dataset=None):
-    images_list = []
-
-    # Itera solo sui batch del training dataset
-    for images, _ in train_dataset:
-        # Converte i tensori in NumPy per facilitarne l'uso
-        images_list.append(images.numpy())
-
-    # Concatena tutti i batch in un unico array
-    # Avremo una forma (totale_immagini, altezza, larghezza, canali)
-    all_train_images = np.concatenate(images_list, axis=0)
-
-    # Calcoliamo media e std sui pixel del training set
-    mean = np.mean(all_train_images, axis=(0, 1, 2))
-    std = np.std(all_train_images, axis=(0, 1, 2))
-
-    # Funzione di standardizzazione che possiamo riutilizzare
-    def standardize_batch(images, labels):
-        return (tf.cast(images, tf.float32) - mean) / std, labels
-
-    # Standardizza il training dataset
-    standardized_train = train_dataset.map(standardize_batch)
-
-    # Se è stato passato anche il validation dataset, standardizza quello usando
-    # gli stessi valori di media e std calcolati sul training
-    if validation_dataset is not None:
-        standardized_validation = validation_dataset.map(standardize_batch)
-        return standardized_train, standardized_validation
-
-    return standardized_train
+    return data_utils.standardize_dataset(train_dataset, validation_dataset)
 
 
 
 def normalize_dataset(train_dataset, validation_dataset=None):
-    images_list = []
-
-    # Raggruppa solo le immagini del training set per calcolare min e max
-    for images, _ in train_dataset:
-        images_list.append(images.numpy())
-
-    all_train_images = np.concatenate(images_list, axis=0)
-
-    # Calcoliamo il min e il max solo sulle immagini di training
-    min_val = np.min(all_train_images, axis=(0, 1, 2))
-    max_val = np.max(all_train_images, axis=(0, 1, 2))
-
-    # Funzione di normalizzazione che possiamo riutilizzare
-    def normalize_batch(images, labels):
-        return (tf.cast(images, tf.float32) - min_val) / (max_val - min_val), labels
-
-    # Normalizza il training dataset
-    normalized_train = train_dataset.map(normalize_batch)
-
-    # Se è stato passato anche il validation dataset, normalizza quello usando
-    # gli stessi valori min e max calcolati sul training
-    if validation_dataset is not None:
-        normalized_validation = validation_dataset.map(normalize_batch)
-        return normalized_train, normalized_validation
-
-    return normalized_train
+    return data_utils.normalize_dataset(train_dataset, validation_dataset)
 
 
 
@@ -161,71 +100,14 @@ def show_images(ds, max_images=32):
 
 
 def remap_labels(mapping):
-    def map_fn(images, labels):
-        def map_label(l):
-            result = []
-            for v in l:
-                if isinstance(v, bytes):
-                    key = v.decode("utf-8")
-                elif isinstance(v, (str, np.str_)):
-                    key = v
-                elif isinstance(v, (np.integer, int)):
-                    # If the numeric label is present as a key in the mapping
-                    # dictionary treat it directly as the key, otherwise fall
-                    # back to interpreting it as an index of the mapping keys.
-                    if v in mapping:
-                        key = int(v)
-                    else:
-                        class_names = list(mapping.keys())
-                        if 0 <= v < len(class_names):
-                            key = class_names[v]
-                        else:
-                            key = None
-                else:
-                    key = None
-                result.append(mapping.get(key, -1))
-            return np.array(result, dtype=np.int32)
-
-        labels = tf.numpy_function(map_label, [labels], tf.int32)
-        labels.set_shape([None])
-        return images, labels
-    return map_fn
+    return data_utils.remap_labels(mapping)
 
 
 from collections import defaultdict
 import random
 
 def balance_dataset(dataset):
-    """
-    Bilancia le classi del dataset via oversampling.
-    """
-    # Raccoglie le immagini per classe
-    class_data = defaultdict(list)
-
-    for image, label in dataset.unbatch():
-        class_index = int(label.numpy())
-        class_data[class_index].append((image, label))
-
-    # Trova la classe con più campioni
-    max_count = max(len(samples) for samples in class_data.values())
-
-    balanced_samples = []
-
-    for class_index, samples in class_data.items():
-        # Ripeti i sample finché non raggiungi max_count
-        repeated = samples.copy()
-        while len(repeated) < max_count:
-            repeated.extend(random.sample(samples, min(max_count - len(repeated), len(samples))))
-        balanced_samples.extend(repeated)
-
-    # Shuffle finale
-    random.shuffle(balanced_samples)
-
-    # Ricostruisci un nuovo dataset bilanciato
-    images, labels = zip(*balanced_samples)
-    images = tf.stack(images)
-    labels = tf.convert_to_tensor(labels)
-    return tf.data.Dataset.from_tensor_slices((images, labels)).batch(32)
+    return data_utils.balance_dataset(dataset)
 
 
 
