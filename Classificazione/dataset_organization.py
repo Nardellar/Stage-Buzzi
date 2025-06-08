@@ -8,26 +8,29 @@ import pandas as pd  # Per leggere file CSV
 import tensorflow as tf  # Per pipeline di immagini e modelli TensorFlow
 from matplotlib import pyplot as plt  # Per visualizzare immagini
 from tensorflow.keras import layers, models
+from pathlib import Path
 
 
 
 # === CONFIGURAZIONE ===
-DATASET_DIR = "../Esperimenti"  # Cartella in cui verranno estratte le immagini
-CSV_FILE = "esperimenti.csv"  # Nome del file CSV contenente gli attributi
-ZIP_NAME = "esperimenti.zip"  # Nome del file zip da scaricare da Google Drive
+# Percorso base relativo a questo file (cioè la root del progetto)
+BASE_DIR = Path(__file__).resolve().parent.parent
+DATASET_DIR = BASE_DIR / "Esperimenti"  # Cartella in cui verranno estratte le immagini
+CSV_FILE = BASE_DIR / "esperimenti.csv"  # Nome del file CSV contenente gli attributi
+ZIP_NAME = BASE_DIR / "esperimenti.zip"  # Nome del file zip da scaricare da Google Drive
 GDRIVE_ID = "1JxuABW728R8n_nz2VONDSOIiWzPFO64a"  # ID pubblico del file su Google Drive
 
 
 # === FUNZIONE PER SCARICARE ED ESTRARRE IL DATASET ===
 def download_and_extract():
-    if not os.path.exists(DATASET_DIR):  # Se la cartella non esiste, scarica il dataset
+    if not DATASET_DIR.exists():  # Se la cartella non esiste, scarica il dataset
         print("⬇️ Scaricamento del dataset da Google Drive...")
         url = f"https://drive.google.com/uc?id={GDRIVE_ID}"  # Costruisce l'URL
-        gdown.download(url, ZIP_NAME, quiet=False)  # Scarica il file ZIP
+        gdown.download(url, str(ZIP_NAME), quiet=False)  # Scarica il file ZIP
 
         print("📦 Estrazione in corso...")
         with zipfile.ZipFile(ZIP_NAME, "r") as zip_ref:  # Apre il file ZIP
-            zip_ref.extractall()  # Estrae tutto
+            zip_ref.extractall(path=BASE_DIR)  # Estrae tutto nella cartella base
         os.remove(ZIP_NAME)  # Elimina lo ZIP dopo l'estrazione
         print("✅ Dataset pronto!")
 
@@ -234,7 +237,7 @@ def get_dataset(attributo):
     download_and_extract()  # Scarica ed estrae le immagini ESPERIMENTI se non già presenti
 
     # Controlla che il file CSV esista
-    if not os.path.exists(CSV_FILE):
+    if not CSV_FILE.exists():
         print(f"❌ Errore: File CSV '{CSV_FILE}' non trovato.")
         sys.exit(1)
 
