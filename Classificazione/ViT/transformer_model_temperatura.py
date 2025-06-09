@@ -4,13 +4,13 @@ from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau, ModelCh
 from tensorflow.keras.optimizers import Adam
 from Classificazione import dataset_organization
 
-
+#costuisce ulteriori strati
 def build_fc_layers(
         inputs,
-        units_list=(512, 256, 128),
-        dropout_rates=(0.5, 0.3, 0.2),
+        units_list=(512, 256, 128), #numero di neuroni
+        dropout_rates=(0.5, 0.3, 0.2), #tassi dropout per ogni livello
         activation='relu',
-        use_batch_norm=True
+        use_batch_norm=True #applica BatchNormalization dopo ogni livello
 ):
     """
     Costruisce i livelli fully connected del modello.
@@ -40,7 +40,7 @@ def create_transformer_classification_model(
         fc_activation='relu',
         use_batch_norm=True,
         learning_rate=0.001,
-        transformer_url="https://tfhub.dev/google/vit_base_patch16_224/classification/1"):
+        transformer_url="https://tfhub.dev/google/vit_base_patch16_224/classification/1"): #il transformer scelto
     """
     Crea un modello di classificazione basato su Vision Transformer (SAM).
 
