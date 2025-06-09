@@ -1,4 +1,4 @@
-from Classificazione import dataset_organization
+from Classificazione import dataset_organization, data_utils
 import model_script
 
 def main():
@@ -11,8 +11,8 @@ def main():
         1500: 2
     }
 
-    train_ds = train_ds.map(dataset_organization.remap_labels(mapping_dict))
-    val_ds = val_ds.map(dataset_organization.remap_labels(mapping_dict))
+    train_ds = train_ds.map(data_utils.remap_labels(mapping_dict))
+    val_ds = val_ds.map(data_utils.remap_labels(mapping_dict))
 
     model = model_script.create_classification_model(
         input_shape=(112, 112, 3),

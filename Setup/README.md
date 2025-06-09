@@ -5,7 +5,7 @@ Il seguente script in Python utilizza TensorFlow e Pandas per caricare un datase
 per avere tutte le librerie necessarie, eseguire il seguente comando:
 ```bash pip install -r requirements.txt```
 e successivamente eseguire il comando:
-```bash python main.py```
+```bash python Classificazione/dataset_organization.py```
 
 ## Librerie Utilizzate
 
@@ -28,7 +28,7 @@ pip install -r requirements.txt
 ---
 ### Setup pre-commit hook
 
-Questo progetto include un file `.pre-commit-config.yaml` per garantire formattazione del codice con [black](https://github.com/psf/black) e [isort](https://github.com/pycqa/isort).
+Questo progetto include un file `.pre-commit-config.yaml` (nella cartella `Setup/Formattazione commit/`) per garantire formattazione del codice con [black](https://github.com/psf/black) e [isort](https://github.com/pycqa/isort).
 
 ### Per attivare i hook pre-commit:
 
@@ -53,7 +53,7 @@ pre-commit install
 Assicurati di avere il file `esperimenti.csv` nella stessa cartella dello script, poi:
 
 ```bash
-python main.py
+python Classificazione/dataset_organization.py
 ```
 
 Il codice scaricherà automaticamente il dataset da Google Drive (se non già presente), chiederà quale attributo analizzare e mostrerà un batch di immagini.
@@ -64,9 +64,9 @@ Il codice scaricherà automaticamente il dataset da Google Drive (se non già pr
 
 | File / Cartella     | Descrizione                                  |
 |---------------------|----------------------------------------------|
-| `main.py`           | Script principale per analizzare le immagini |
+| `Classificazione/dataset_organization.py`           | Script principale per analizzare le immagini |
 | `esperimenti.csv`   | File CSV con i dati associati alle immagini  |
-| `.pre-commit-config.yaml` | Configurazione per i pre-commit hook        |
+| `Setup/Formattazione commit/.pre-commit-config.yaml` | Configurazione per i pre-commit hook        |
 | `requirements.txt`  | Dipendenze Python                            |
 
 ---
@@ -84,7 +84,7 @@ Il codice scaricherà automaticamente il dataset da Google Drive (se non già pr
 
 - Le etichette vengono inferite dai nomi delle cartelle.
 
-- Le immagini vengono ridimensionate a (108, 192).
+- Le immagini vengono ridimensionate a (112, 112).
 
 - Il batch size è impostato a 32.
 
@@ -109,28 +109,3 @@ Il codice scaricherà automaticamente il dataset da Google Drive (se non già pr
 - Ridimensiona la figura e organizza le immagini in una griglia.
 ---
 ### Interazione con l'utente
-
-- L'utente inserisce un attributo.
-
-- Se l'input è vuoto o contiene solo spazi, il programma termina.
-
-- Se l'attributo non esiste nel DataFrame, il programma termina.
----
-### Creazione del dataset filtrato
-
-- Filtra il dataset in base all'attributo scelto.
-
-- Stampa il numero di immagini corrispondenti.
----
-### Visualizzazione delle immagini
-
-- Se il dataset filtrato contiene immagini, vengono mostrate.
-
-- Se nessuna immagine soddisfa i criteri, viene mostrato un messaggio di errore.
----
-
-## 👤 Autori
-
-- [@Simone Nardella](https://github.com/Nardellar)
-- [@Matteo Barbieri](https://github.com/teobarby)
-
