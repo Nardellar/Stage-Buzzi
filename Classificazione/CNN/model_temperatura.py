@@ -1,4 +1,4 @@
-from Classificazione import dataset_organization, data_utils
+from common import dataset_organization, data_utils
 import model_script
 
 def main():
