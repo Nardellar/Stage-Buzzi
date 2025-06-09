@@ -5,7 +5,7 @@ Il seguente script in Python utilizza TensorFlow e Pandas per caricare un datase
 per avere tutte le librerie necessarie, eseguire il seguente comando:
 ```bash pip install -r requirements.txt```
 e successivamente eseguire il comando:
-```bash python Classificazione/dataset_organization.py```
+```bash python common/dataset_organization.py```
 
 ## Librerie Utilizzate
 
@@ -53,7 +53,7 @@ pre-commit install
 Assicurati di avere il file `esperimenti.csv` nella stessa cartella dello script, poi:
 
 ```bash
-python Classificazione/dataset_organization.py
+python common/dataset_organization.py
 ```
 
 Il codice scaricherà automaticamente il dataset da Google Drive (se non già presente), chiederà quale attributo analizzare e mostrerà un batch di immagini.
@@ -64,7 +64,7 @@ Il codice scaricherà automaticamente il dataset da Google Drive (se non già pr
 
 | File / Cartella     | Descrizione                                  |
 |---------------------|----------------------------------------------|
-| `Classificazione/dataset_organization.py`           | Script principale per analizzare le immagini |
+| `common/dataset_organization.py`           | Script principale per analizzare le immagini |
 | `esperimenti.csv`   | File CSV con i dati associati alle immagini  |
 | `Setup/Formattazione commit/.pre-commit-config.yaml` | Configurazione per i pre-commit hook        |
 | `requirements.txt`  | Dipendenze Python                            |

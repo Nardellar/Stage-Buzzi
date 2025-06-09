@@ -1,4 +1,4 @@
-from Classificazione import dataset_organization
+from common import dataset_organization
 import model_script
 
 

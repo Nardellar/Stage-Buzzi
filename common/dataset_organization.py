@@ -6,7 +6,12 @@ from matplotlib import pyplot as plt  # Per visualizzare immagini
 from tensorflow.keras import layers
 from pathlib import Path
 from . import csv_config
-from .data_utils import download_and_extract, balance_dataset, standardize_dataset
+from .data_utils import (
+    download_and_extract,
+    balance_dataset,
+    standardize_dataset,
+    remap_labels,
+)
 
 # === CONFIGURAZIONE ===
 # Percorso base relativo a questo file (cioè la root del progetto)
