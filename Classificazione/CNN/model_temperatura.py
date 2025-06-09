@@ -3,7 +3,7 @@ import model_script
 
 def main():
 
-    train_ds, val_ds = dataset_organization.get_dataset("tempo")
+    train_ds, val_ds = dataset_organization.get_dataset("temperatura")
 
     mapping_dict = {
         1300: 0,
