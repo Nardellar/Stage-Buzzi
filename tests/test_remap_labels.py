@@ -4,7 +4,7 @@ import tensorflow as tf
 
 # Allow importing the local package without installing it
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-from Classificazione import dataset_organization
+from common import dataset_organization
 
 
 def test_remap_labels_basic():
