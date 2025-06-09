@@ -9,7 +9,7 @@ import tensorflow as tf  # Per pipeline di immagini e modelli TensorFlow
 from matplotlib import pyplot as plt  # Per visualizzare immagini
 from tensorflow.keras import layers, models
 from pathlib import Path
-from . import csv_config
+from . import esperimenti
 
 
 
@@ -17,7 +17,6 @@ from . import csv_config
 # Percorso base relativo a questo file (cioè la root del progetto)
 BASE_DIR = Path(__file__).resolve().parent.parent
 DATASET_DIR = BASE_DIR / "Esperimenti"  # Cartella in cui verranno estratte le immagini
-CSV_FILE = BASE_DIR / "esperimenti.csv"  # Nome del file CSV contenente gli attributi
 ZIP_NAME = BASE_DIR / "esperimenti.zip"  # Nome del file zip da scaricare da Google Drive
 GDRIVE_ID = "1JxuABW728R8n_nz2VONDSOIiWzPFO64a"  # ID pubblico del file su Google Drive
 
@@ -237,14 +236,8 @@ def get_dataset(attributo):
 
     download_and_extract()  # Scarica ed estrae le immagini ESPERIMENTI se non già presenti
 
-    # Controlla che il file CSV esista altrimenti lo genera
-    if not CSV_FILE.exists():
-        print(f"⚠️ File CSV '{CSV_FILE}' non trovato. Creazione in corso...")
-        csv_config.create_csv(CSV_FILE)
-
-    #Legge il CSV e salva nel dataframe pandas
-    #ora conterrà gli ID degli esperimenti (es:EXP01,EXP02...) e tutti i loro attributi (es.temperatura,...)
-    data_frame = pd.read_csv(CSV_FILE)
+    # Carica la tabella degli esperimenti
+    data_frame = esperimenti.get_dataframe()
 
     image_size = (112, 112)
 
