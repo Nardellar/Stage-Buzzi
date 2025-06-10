@@ -19,8 +19,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 DATASET_DIR = BASE_DIR / "Esperimenti"  # Cartella in cui verranno estratte le immagini
 CSV_FILE = BASE_DIR / "esperimenti.csv"  # Nome del file CSV contenente gli attributi
 ZIP_NAME = BASE_DIR / "esperimenti.zip"  # Nome del file zip da scaricare da Google Drive
-GDRIVE_ID = "1JxuABW728R8n_nz2VONDSOIiWzPFO64a"  # ID pubblico del file su Google Drive
-
+GDRIVE_ID = "11HJX0_cab7bEKeH9tQsebtzmdRoaZOPc"  # ID pubblico del file su Google Drive
 
 def map_labels_to_attribute(ds, df, attribute_name):
     import numpy as np
