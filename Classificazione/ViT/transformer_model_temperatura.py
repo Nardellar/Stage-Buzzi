@@ -3,7 +3,7 @@ import os
 import shutil
 import random
 import numpy as np
-import tensorflow as tf
+import tensorflow_cpu as tf
 import tensorflow_hub as hub
 from tensorflow.keras import layers, models, callbacks, optimizers, mixed_precision
 from pathlib import Path
@@ -22,14 +22,14 @@ def configure_gpus():
         tf.config.experimental.set_memory_growth(gpu, True)
 
 
-def clear_tfhub_cache():
+'''def clear_tfhub_cache():
     """
     Rimuove la cache locale di TensorFlow Hub per evitare header corrotti.
     """
     cache_dir = os.path.join(os.path.expanduser('~'), '.cache', 'tensorflowhub')
     if os.path.isdir(cache_dir):
         shutil.rmtree(cache_dir)
-
+'''
 # --- Model Components ---
 
 def build_fc_layers(
@@ -91,7 +91,7 @@ def create_vit_model(
     except Exception as e:
         raise RuntimeError(
             f"Errore nel caricamento del modello da {transformer_url}: {e}\n"
-            "Verifica l'URL (ad es. '/vit-base-patch16-224/feature_vector/1' o '/vit-base-patch16-224/finetuning/1') "
+            "Verifica l'URL (ad es. '/vit_base_patch16_224/feature_vector/1' o '/vit_base_patch16_224/finetuning/1') "
             "e pulisci la cache TF-Hub con clear_tfhub_cache()."
         )
 
@@ -132,7 +132,7 @@ def parse_args():
     parser.add_argument('--data_key', type=str, default='temperatura',
                         help='Chiave per dataset_organization.get_dataset')
     parser.add_argument('--transformer_url', type=str,
-                        default="https://tfhub.dev/google/vit-base-patch16-224/feature_vector/1",
+                        default="https://tfhub.dev/google/vit_base_patch16_224/feature_vector/1",
                         help='URL del modello ViT su TF-Hub')
     parser.add_argument('--image_size', type=int, default=224,
                         help='Dimensione input immagini')
@@ -162,7 +162,7 @@ def main():
     args = parse_args()
 
     # Clear cache, seeds, GPUs, precision
-    clear_tfhub_cache()
+   # clear_tfhub_cache()
     set_seeds()
     configure_gpus()
     if args.mixed_precision:
