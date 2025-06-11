@@ -189,3 +189,6 @@ def get_dataset(attributo):
 
 
     return train_dataset, validation_dataset
+
+
+# da provare poi a scalare le immagini a 224 x 224 dato che i modelli ViT richiedono immagini di dimensioni 224x224. comunque 112 x 112 non è un problema perché fa conversione
