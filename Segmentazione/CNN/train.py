@@ -7,6 +7,14 @@ import os
 from sklearn.model_selection import train_test_split
 
 
+class ArgmaxMeanIoU(tf.keras.metrics.MeanIoU):
+    """MeanIoU metric that argmaxes model predictions."""
+
+    def update_state(self, y_true, y_pred, sample_weight=None):
+        y_pred = tf.argmax(y_pred, axis=-1)
+        y_true = tf.clip_by_value(tf.cast(y_true, tf.int32), 0, self.num_classes - 1)
+        return super().update_state(y_true, y_pred, sample_weight)
+
 def main():
     """
     Funzione principale che orchestra l'intero processo di addestramento.
@@ -19,7 +27,7 @@ def main():
 
     INPUT_SHAPE = (IMG_HEIGHT, IMG_WIDTH, IMG_CHANNELS)
     BATCH_SIZE = 8
-    EPOCHS = 50
+    EPOCHS = 5
     LEARNING_RATE = 1e-4
     VALIDATION_SPLIT = 0.2
 
@@ -56,10 +64,10 @@ def main():
     # 2. CREAZIONE DEI DATASET
     print("Creazione dei dataset TensorFlow...")
     train_dataset = create_dataset_from_files(
-        train_img_paths, train_mask_paths, (IMG_HEIGHT, IMG_WIDTH), BATCH_SIZE, augment=True
+        train_img_paths, train_mask_paths, (IMG_HEIGHT, IMG_WIDTH), BATCH_SIZE, NUM_CLASSES, augment=True
     )
     val_dataset = create_dataset_from_files(
-        val_img_paths, val_mask_paths, (IMG_HEIGHT, IMG_WIDTH), BATCH_SIZE, augment=False
+        val_img_paths, val_mask_paths, (IMG_HEIGHT, IMG_WIDTH), BATCH_SIZE, NUM_CLASSES, augment=False
     )
     print("Dataset creati.")
 
@@ -74,7 +82,7 @@ def main():
     model.compile(
         optimizer=tf.keras.optimizers.Adam(learning_rate=LEARNING_RATE),
         loss="sparse_categorical_crossentropy",
-        metrics=[tf.keras.metrics.MeanIoU(num_classes=NUM_CLASSES)]
+        metrics=[ArgmaxMeanIoU(num_classes=NUM_CLASSES)],
     )
     print("Modello compilato.")
 
@@ -82,7 +90,7 @@ def main():
     callbacks = [
         tf.keras.callbacks.ModelCheckpoint(MODEL_SAVE_PATH, save_best_only=True, monitor="val_loss", verbose=1),
         tf.keras.callbacks.EarlyStopping(monitor="val_loss", patience=10, verbose=1),
-        tf.keras.callbacks.TensorBoard(log_dir="logs")
+        tf.keras.callbacks.TensorBoard(log_dir="logs"),
     ]
 
     # 6. ADDESTRAMENTO DEL MODELLO
