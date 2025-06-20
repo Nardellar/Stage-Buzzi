@@ -5,7 +5,7 @@ import numpy as np
 from skimage.io import imread  # <--- Usiamo la libreria scikit-image
 
 
-def load_image_and_mask(image_path, mask_path, image_size):
+def load_image_and_mask(image_path, mask_path, image_size, num_classes):
     """
     Carica un'immagine e una maschera, assicurando che le forme siano corrette.
     """
@@ -19,7 +19,7 @@ def load_image_and_mask(image_path, mask_path, image_size):
     # Carica la maschera TIFF usando una funzione Python e tf.py_function
     def _load_tiff(path):
         # Usiamo scikit-image, che è molto affidabile con i formati scientifici
-        path = path.numpy().decode('utf-8')
+        path = path.numpy().decode("utf-8")
         mask_array = imread(path)
         return mask_array.astype(np.int32)
 
@@ -30,7 +30,7 @@ def load_image_and_mask(image_path, mask_path, image_size):
     # Per il resize, la maschera ha bisogno di una dimensione per il canale
     mask.set_shape([None, None])
     mask = tf.expand_dims(mask, axis=-1)  # Forma -> [H, W, 1]
-    mask = tf.image.resize(mask, image_size, method='nearest')
+    mask = tf.image.resize(mask, image_size, method="nearest")
 
     # Rimuovi la dimensione del canale per la loss function
     # Forma finale -> [H, W], che è ciò che serve
@@ -38,6 +38,9 @@ def load_image_and_mask(image_path, mask_path, image_size):
 
     # Assicura che TensorFlow conosca la forma finale
     mask.set_shape([image_size[0], image_size[1]])
+
+    # Limita i valori della maschera all'intervallo valido
+    mask = tf.clip_by_value(mask, 0, num_classes - 1)
 
     return image, mask
 
@@ -59,7 +62,7 @@ def augment_data(image, mask):
     return image, mask
 
 
-def create_dataset_from_files(image_files, mask_files, image_size, batch_size, augment=False):
+def create_dataset_from_files(image_files, mask_files, image_size, batch_size, num_classes, augment=False):
     """
     Crea il dataset finale, gestendo la forma della maschera.
     """
@@ -67,8 +70,8 @@ def create_dataset_from_files(image_files, mask_files, image_size, batch_size, a
 
     # 1. Carica e ridimensiona
     dataset = dataset.map(
-        lambda img, msk: load_image_and_mask(img, msk, image_size),
-        num_parallel_calls=tf.data.AUTOTUNE
+        lambda img, msk: load_image_and_mask(img, msk, image_size, num_classes),
+        num_parallel_calls=tf.data.AUTOTUNE,
     )
 
     # 2. Applica augmentation se richiesto
