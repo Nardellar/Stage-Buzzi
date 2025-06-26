@@ -4,7 +4,7 @@ import sys
 import tensorflow as tf
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-from Classificazione import dataset_organization
+from common import dataset_organization
 
 
 def test_balance_dataset_even_counts():
