@@ -31,19 +31,31 @@ def parse_args() -> argparse.Namespace:
 
 
 def prepare_dataset(attribute: str, batch_size: int):
-    csv_path = Path("esperimenti.csv")
+    root_dir = Path(__file__).resolve().parents[2]
+    csv_path = root_dir / "esperimenti.csv"
     if not csv_path.exists():
         print("⚠️ File CSV mancante, creazione in corso...")
         csv_config.create_csv(csv_path)
 
     df = pd.read_csv(csv_path)
+
+    # --- INIZIO MODIFICA ---
+    # 1. Ottieni i valori unici dell'attributo e crea una mappa verso gli indici (0, 1, 2...)
+    unique_attributes = sorted(list(df[attribute].unique()))
+    label2id = {label: i for i, label in enumerate(unique_attributes)}
+    num_classes = len(unique_attributes)
+    # --- FINE MODIFICA ---
+
     attr_map = df.set_index("ID")[attribute].to_dict()
 
     ds = load_dataset("Nardellar/Esperimenti", split="train")
 
     def add_attribute(example):
         class_name = ds.features["label"].int2str(example["label"])
-        example["attribute"] = attr_map.get(class_name, -1)
+        # Ottieni il valore grezzo (es. 1400)
+        raw_attribute_value = attr_map.get(class_name, -1)
+        # Mappa il valore grezzo al suo indice (es. 1) usando la mappa label2id
+        example["attribute"] = label2id.get(raw_attribute_value, -1)
         return example
 
     ds = ds.map(add_attribute)
@@ -70,13 +82,21 @@ def prepare_dataset(attribute: str, batch_size: int):
         columns=["pixel_values"], label_cols=["labels"], batch_size=batch_size, shuffle=False
     )
 
-    num_classes = len(sorted(set(df[attribute])))
     return train_tf, val_tf, num_classes
 
-
 def main() -> None:
-    args = parse_args()
-    train_ds, val_ds, num_classes = prepare_dataset(args.attribute, args.batch_size)
+    # --- Inizio Modifiche ---
+
+    # 1. Definisci i parametri direttamente qui
+    attribute = "temperatura"
+    epochs = 3  # Puoi cambiare anche questo valore se vuoi
+    batch_size = 16 # E anche questo
+
+    # 2. La riga seguente non è più necessaria
+    # args = parse_args()
+
+    # 3. Passa le variabili definite sopra alle funzioni
+    train_ds, val_ds, num_classes = prepare_dataset(attribute, batch_size)
 
     model = TFViTForImageClassification.from_pretrained(
         "google/vit-base-patch16-224",
@@ -90,8 +110,10 @@ def main() -> None:
         metrics=["accuracy"],
     )
 
-    model.fit(train_ds, validation_data=val_ds, epochs=args.epochs)
-    model.save_pretrained(f"vit_{args.attribute}")
+    model.fit(train_ds, validation_data=val_ds, epochs=epochs)
+    model.save_pretrained(f"vit_{attribute}")
+
+    # --- Fine Modifiche ---
 
 
 if __name__ == "__main__":
