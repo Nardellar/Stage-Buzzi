@@ -1,0 +1,5 @@
+PROBLEMI:
+
+1: il dataset è troppo piccolo. faccio tante epoche? ----> overfitting
+2: posso usare un decoder pre-addestrato -----> non esistono deocder che ignorano colori --->scale di grigio va bene?
+3: le machere non hanno solo 3 classi per ogni pixel, ma 7!!! in altre 6
