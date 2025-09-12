@@ -59,4 +59,4 @@ if __name__ == "__main__":
     )
 
     model.fit(train_ds, validation_data=val_ds, epochs=3)
-    model.save_pretrained("vit_temperatura")
+    model.save_pretrained("vit_di_EXP") #VIT per classificare la classe di esperimenti

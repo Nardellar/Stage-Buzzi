@@ -123,7 +123,7 @@ def main():
     IMG_HEIGHT = 256
     IMG_WIDTH = 256
     IMG_CHANNELS = 3
-    NUM_CLASSES = 3
+    NUM_CLASSES = 7    #TODO: TROPPE CLASSI, è DA RISOLVERE
 
     INPUT_SHAPE = (IMG_HEIGHT, IMG_WIDTH, IMG_CHANNELS)
     BATCH_SIZE = 8
@@ -134,7 +134,7 @@ def main():
     # --- PATH DEI DATI ---
     IMAGE_DIR = "../images/Immagini/"
     MASK_DIR = "../images/Maschere/"
-    MODEL_SAVE_PATH = "unet_mobilenetv2_model.keras"
+    MODEL_SAVE_PATH = "unet_mobilenetv2_model_preaddestrato.keras"
 
     print("Caricamento e suddivisione dei dati...")
     image_files = sorted([os.path.join(IMAGE_DIR, f) for f in os.listdir(IMAGE_DIR) if f.lower().endswith(('.png', '.jpg', '.jpeg'))])

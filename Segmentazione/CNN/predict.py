@@ -26,7 +26,7 @@ NUM_CLASSES = 3
 # --- PATH DEI DATI E DEL MODELLO ---
 IMAGE_DIR = "../images/Immagini/"
 MASK_DIR = "../images/Maschere/"
-MODEL_PATH = "unet_segmentation_model.keras"  # Il modello salvato da train.py
+MODEL_PATH = "unet_mobilenetv2_model_preaddestrato.keras"  # Il modello salvato da train.py
 
 
 def load_for_prediction(image_path, mask_path):
