@@ -111,7 +111,7 @@ def main() -> None:
     )
 
     model.fit(train_ds, validation_data=val_ds, epochs=epochs)
-    model.save_pretrained(f"vit_{attribute}")
+    model.save_pretrained(f"vit_from_hf{attribute}")
 
     # --- Fine Modifiche ---
 
