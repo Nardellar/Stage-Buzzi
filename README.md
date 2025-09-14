@@ -25,3 +25,7 @@ This repository collects machine learning utilities for image classification and
    Replace `model_temperatura` with the desired module (e.g. `model_tempo`, `model_raffreddamento`, ...).
 
 The repository also provides an optional pre‑commit configuration in `Setup/Formattazione commit/` which formats Python files with **black** and **isort**.
+
+## Data augmentation
+
+Both dataset helpers expose an `augment` flag to enable random rotations, flips and brightness/contrast adjustments during training. Pass `augment=True` to `common.dataset_organization.get_dataset` or `Segmentazione.CNN.Dataset.create_dataset_from_files` to activate these transformations.
