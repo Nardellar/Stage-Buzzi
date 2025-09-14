@@ -46,17 +46,23 @@ def load_image_and_mask(image_path, mask_path, image_size, num_classes):
 
 
 def augment_data(image, mask):
-    """
-    Applica la stessa trasformazione casuale sia all'immagine che alla maschera.
-    """
-    # Per l'augmentation, la maschera ha di nuovo bisogno della dimensione del canale
+    """Applica trasformazioni random a immagine e maschera."""
     mask_with_channel = tf.expand_dims(mask, axis=-1)
 
     if tf.random.uniform(()) > 0.5:
         image = tf.image.flip_left_right(image)
         mask_with_channel = tf.image.flip_left_right(mask_with_channel)
+    if tf.random.uniform(()) > 0.5:
+        image = tf.image.flip_up_down(image)
+        mask_with_channel = tf.image.flip_up_down(mask_with_channel)
 
-    # Rimuovi di nuovo la dimensione del canale dalla maschera
+    k = tf.random.uniform([], minval=0, maxval=4, dtype=tf.int32)
+    image = tf.image.rot90(image, k)
+    mask_with_channel = tf.image.rot90(mask_with_channel, k)
+
+    image = tf.image.random_brightness(image, 0.2)
+    image = tf.image.random_contrast(image, 0.8, 1.2)
+
     mask = tf.squeeze(mask_with_channel, axis=-1)
 
     return image, mask

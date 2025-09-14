@@ -13,6 +13,17 @@ from .data_utils import (
     remap_labels,
 )
 
+
+def augment_image(image, label):
+    """Random augmentations for classification images."""
+    k = tf.random.uniform([], minval=0, maxval=4, dtype=tf.int32)
+    image = tf.image.rot90(image, k)
+    image = tf.image.random_flip_left_right(image)
+    image = tf.image.random_flip_up_down(image)
+    image = tf.image.random_brightness(image, max_delta=0.2)
+    image = tf.image.random_contrast(image, 0.8, 1.2)
+    return image, label
+
 # === CONFIGURAZIONE ===
 # Percorso base relativo a questo file (cioè la root del progetto)
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -80,7 +91,7 @@ def show_images(ds, max_images=32):
 
 # === BLOCCO PRINCIPALE ===
 #Prepara e restituisce il train dataset ed il validation dataset
-def get_dataset(attributo):
+def get_dataset(attributo, augment=False):
 
     download_and_extract(DATASET_DIR, ZIP_NAME, GDRIVE_ID)  # Scarica ed estrae le immagini ESPERIMENTI se non già presenti
 
@@ -116,7 +127,13 @@ def get_dataset(attributo):
     if attributo == "id":
 
         train_dataset = balance_dataset(train_dataset)
-        train_dataset, validation_dataset = standardize_dataset(train_dataset, validation_dataset)
+        if augment:
+            train_dataset = train_dataset.map(
+                augment_image, num_parallel_calls=tf.data.AUTOTUNE
+            )
+        train_dataset, validation_dataset = standardize_dataset(
+            train_dataset, validation_dataset
+        )
 
         return train_dataset, validation_dataset
 
@@ -143,6 +160,10 @@ def get_dataset(attributo):
     if train_dataset is not None:
         print("🔁 Bilanciamento del dataset in corso...")
         train_dataset = balance_dataset(train_dataset)
+        if augment:
+            train_dataset = train_dataset.map(
+                augment_image, num_parallel_calls=tf.data.AUTOTUNE
+            )
 
     # Estrai le classi presenti nel dataset bilanciato
     from collections import Counter
@@ -164,7 +185,9 @@ def get_dataset(attributo):
 
 
     #viene calcolata la media e la deviazione standard delle immagini del training set
-    train_dataset, validation_dataset = standardize_dataset(train_dataset, validation_dataset)
+    train_dataset, validation_dataset = standardize_dataset(
+        train_dataset, validation_dataset
+    )
 
 
     #questo blocco visualizza le immagini
