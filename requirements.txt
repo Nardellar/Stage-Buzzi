@@ -1,18 +1,20 @@
 #6pandas~=2.2.3
-numpy~=2.0.2
-torch~=2.7.0
-matplotlib~=3.9.4
-opencv-python~=4.11.0.86
-tensorflow~=2.19.0
-segment-anything~=1.0
-setuptools~=68.2.0
-gdown~=5.2.0
-optuna~=4.3.0
-xgboost~=2.1.4
-keras~=3.9.2
-pillow~=11.2.1
-onnxruntime~=1.19.2
-torchvision~=0.22.0
-ipython~=8.18.1
-transformers~=4.52.4
-datasets~=3.6.0
+--extra-index-url https://download.pytorch.org/whl/cpu #per permettere a PyPI di trovare le versioni CPU di alcune librerie
+
+pandas==2.3.2
+numpy==2.2.6 #versione piu vecchia per farlo funzionare con opencv-python
+torch==2.8.0
+matplotlib==3.10.6
+opencv-python==4.12.0.88
+#tensorflow==2.20.0 #scaricare tensoflow-gpu se si ha gpu o tensorflow-cpu se si ha solo cpu
+setuptools==80.9.0
+gdown==5.2.0
+optuna==4.5.0
+xgboost==3.0.5
+keras==3.11.3
+pillow==11.3.0
+onnxruntime==1.22.1
+torchvision==0.23.0
+ipython==9.5.0
+transformers==4.56.1
+datasets==4.0.0

@@ -19,3 +19,4 @@ __pycache__/
 .ipynb_checkpoints/
 
 /.idea/
+/Classificazione/ViT/vit_from_hf_temperatura_keras/
