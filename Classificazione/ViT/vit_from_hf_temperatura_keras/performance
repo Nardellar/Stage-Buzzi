@@ -1,6 +1,0 @@
-2025-09-15 15:47:11.873744: E tensorflow/core/util/util.cc:131] oneDNN supports DT_INT32 only on platforms with AVX-512. Falling back to the default Eigen-based implementation if present.
-70/70 [==============================] - 979s 14s/step - loss: 0.2218 - accuracy: 0.9098 - val_loss: 0.0441 - val_accuracy: 0.9821
-Epoch 2/3
-70/70 [==============================] - 911s 13s/step - loss: 0.0262 - accuracy: 0.9893 - val_loss: 0.0210 - val_accuracy: 0.9857
-Epoch 3/3
-70/70 [==============================] - 912s 13s/step - loss: 0.0521 - accuracy: 0.9812 - val_loss: 0.1023 - val_accuracy: 0.9750
