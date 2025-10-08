@@ -14,7 +14,7 @@ This repository collects machine learning utilities for image classification and
 
 1. Install the dependencies:
    ```bash
-   pip install -r requirements.txt
+   pip install -r requirements.txt.txt
    ```
 2. Run the classification models. The dataset utilities will
    automatically create `esperimenti.csv` the first time you run them.

@@ -1,0 +1,24 @@
+RESOCONTO CLASSIFICAZIONE:
+USIAMO UN MODELLO VIT GOOGLE BASE 16 (dovremmo usarne degli altri?)
+
+Partner di programmazione
+
+Mostra il processo elaborativo
+Ah, capisco. Mi dispiace che la soluzione precedente non abbia funzionato. A volte questi errori sono più ostinati del previsto! L'errore è identico, il che significa che il problema di fondo è proprio nel modo in cui la libreria transformers cerca di sostituire l'ultimo strato del modello.
+
+Non preoccuparti, ho un'altra soluzione che è più robusta e dovrebbe risolvere il problema in modo definitivo.
+
+Il problema è che il classificatore TFViT già addestrato é stato addestrato per riconoscere 1000 oggetti, e non solo 3 classi di temperatura.
+
+
+Non possiamo correggere la libreria, ma possiamo aggirare il problema costruendo il modello in modo leggermente diverso. Questo approccio è più robusto e non sarà influenzato dal bug. Ti guiderò passo dopo passo.
+
+Invece di usare la classe TFViTForImageClassification che fa tutto in automatico (e che contiene il bug), faremo due passi separati:
+
+Caricheremo il corpo principale del modello ViT (senza il classificatore finale).
+
+Aggiungeremo manualmente un nuovo classificatore con il numero corretto di classi.
+
+
+TODO:
+CONTROLLARE CHE FUNZIONI BENE ANCHE PER ATTRIBUTI CHE NON HANNO 3 LABEL (3 VALORI POSSIBILI) COME LA TEMPERATURA

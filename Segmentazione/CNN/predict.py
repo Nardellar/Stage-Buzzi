@@ -1,96 +1,128 @@
-# Segmentazione/CNN/predict.py
-
-import tensorflow as tf
+# CNN/predict.py
+import torch
+import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 import os
 from sklearn.model_selection import train_test_split
-from skimage.io import imread
+import albumentations as A
+from albumentations.pytorch import ToTensorV2
+from model_vit_unet import ViT_Unet  # Importa il modello per caricarlo
+"""
+Scopo: Dopo aver addestrato il modello, questo script ti permette di usarlo per vedere come si comporta su nuove 
+immagini.
+
+Funzioni Principali:
+- Carica il modello addestrato che hai salvato (vit_unet_pytorch.pth).
+- Prende un'immagine di input, la prepara nello stesso modo in cui sono state preparate le immagini di addestramento.
+- Passa l'immagine al modello per ottenere una maschera di segmentazione.
+- Visualizza l'immagine originale, la maschera reale (se disponibile) e la maschera predetta dal modello, 
+  per permetterti di valutare visivamente il risultato.
+
+In breve: È lo strumento per vedere se il modello ha imparato bene e cosa è in grado """
+
+def create_color_map():
+    """Crea una mappa di colori per la visualizzazione delle maschere."""
+    return np.array([
+        [0, 0, 0],  # Classe 0: Sfondo (Nero)
+        [255, 0, 0],  # Classe 1: Alite (Rosso)
+        [0, 255, 0],  # Classe 2: Belite (Verde)
+    ], dtype=np.uint8)
 
 
-# --- CLASSE DELLA METRICA PERSONALIZZATA ---
-# Dobbiamo includerla perché il modello è stato salvato con questa metrica
-class ArgmaxMeanIoU(tf.keras.metrics.MeanIoU):
-    def update_state(self, y_true, y_pred, sample_weight=None):
-        y_pred = tf.argmax(y_pred, axis=-1)
-        y_true = tf.clip_by_value(tf.cast(y_true, 'int32'), 0, self.num_classes - 1)
-        return super().update_state(y_true, y_pred, sample_weight)
+def mask_to_rgb(mask, color_map):
+    """Converte una maschera di etichette in un'immagine RGB."""
+    if len(mask.shape) == 3 and mask.shape[-1] == 1:
+        mask = np.squeeze(mask, axis=-1)
+
+    rgb_mask = color_map[mask]
+    return rgb_mask
 
 
-# --- CONFIGURAZIONE ---
-IMG_HEIGHT = 256
-IMG_WIDTH = 256
-IMAGE_SIZE = (IMG_HEIGHT, IMG_WIDTH)
-NUM_CLASSES = 3
+def predict_single_image(model, image_path, device, size=(224, 224)):
+    """Carica un'immagine, la pre-processa ed esegue la predizione."""
+    model.eval()  # Imposta il modello in modalità valutazione
 
-# --- PATH DEI DATI E DEL MODELLO ---
-IMAGE_DIR = "../images/Immagini/"
-MASK_DIR = "../images/Maschere/"
-MODEL_PATH = "unet_mobilenetv2_model_preaddestrato.keras"  # Il modello salvato da train.py
+    # Carica l'immagine originale
+    original_image = cv2.imread(image_path)
+    original_image = cv2.cvtColor(original_image, cv2.COLOR_BGR2RGB)
 
+    # Trasformazioni (devono essere le stesse della validazione)
+    transform = A.Compose([
+        A.Resize(size[0], size[1]),
+        A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
+        ToTensorV2(),
+    ])
 
-def load_for_prediction(image_path, mask_path):
-    """Carica e pre-processa una singola coppia per la visualizzazione."""
-    # Carica immagine originale per la visualizzazione
-    original_image = imread(image_path)
+    augmented = transform(image=original_image.copy())  # Usa una copia per non modificare l'originale
+    image_tensor = augmented['image'].unsqueeze(0).to(device)
 
-    # Carica e processa l'immagine per darla in input al modello
-    image = tf.convert_to_tensor(original_image, dtype=tf.float32)
-    image = tf.image.resize(image, IMAGE_SIZE) / 255.0
-    image = tf.expand_dims(image, axis=0)  # Aggiunge la dimensione del batch
+    with torch.no_grad():
+        output = model(image_tensor)
 
-    # Carica la maschera reale per il confronto
-    true_mask = imread(mask_path)
-    true_mask = tf.convert_to_tensor(true_mask, dtype=tf.int32)
-    true_mask = tf.image.resize(tf.expand_dims(true_mask, axis=-1), IMAGE_SIZE, method='nearest')
-    true_mask = tf.squeeze(true_mask, axis=-1)
+    # Ottieni la classe predetta per ogni pixel
+    predicted_mask = torch.argmax(output, dim=1).squeeze(0).cpu().numpy()
 
-    return original_image, image, true_mask
-
-
-def display(display_list, titles):
-    """Funzione per visualizzare le immagini."""
-    plt.figure(figsize=(15, 5))
-    for i in range(len(display_list)):
-        plt.subplot(1, len(display_list), i + 1)
-        plt.title(titles[i])
-        plt.imshow(display_list[i])
-        plt.axis('off')
-    plt.show()
+    return original_image, predicted_mask
 
 
 def main():
+    # --- Configurazione ---
+    DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+    MODEL_PATH = "vit_unet_pytorch.pth"  # Il modello che hai salvato
+    IMAGE_DIR = "../images/Immagini/"
+    MASK_DIR = "../images/Maschere/"
+    NUM_CLASSES = 3
+    VALIDATION_SPLIT = 0.2
+    NUM_PREDICTIONS_TO_SHOW = 5  # Quante immagini di validazione vuoi visualizzare
+
+    # --- Carica il modello ---
     print(f"Caricamento del modello da: {MODEL_PATH}")
-    # Carica il modello, specificando la metrica personalizzata
-    model = tf.keras.models.load_model(
-        MODEL_PATH,
-        custom_objects={'ArgmaxMeanIoU': ArgmaxMeanIoU}
-    )
+    model = ViT_Unet(num_classes=NUM_CLASSES).to(DEVICE)
+    model.load_state_dict(torch.load(MODEL_PATH, map_location=torch.device(DEVICE)))
     print("Modello caricato.")
 
-    # Prendi gli stessi dati di validazione usati nel training
-    image_files = sorted(
-        [os.path.join(IMAGE_DIR, f) for f in os.listdir(IMAGE_DIR) if f.lower().endswith(('.png', '.jpg', '.jpeg'))])
-    mask_files = sorted([os.path.join(MASK_DIR, f) for f in os.listdir(MASK_DIR) if
-                         f.lower().endswith(('.png', '.jpg', '.jpeg', '.tif', '.tiff'))])
+    # --- Prepara i dati di validazione per i test ---
+    image_files = sorted([os.path.join(IMAGE_DIR, f) for f in os.listdir(IMAGE_DIR)])
+    mask_files = sorted([os.path.join(MASK_DIR, f) for f in os.listdir(MASK_DIR)])
 
     _, val_img_paths, _, val_mask_paths = train_test_split(
-        image_files, mask_files, test_size=0.2, random_state=42
+        image_files, mask_files, test_size=VALIDATION_SPLIT, random_state=42
     )
 
-    # Mostra le predizioni per un po' di immagini di validazione
-    for i in range(min(5, len(val_img_paths))):  # Mostra fino a 5 immagini
-        original_img, input_img, true_mask = load_for_prediction(val_img_paths[i], val_mask_paths[i])
+    color_map = create_color_map()
 
-        # Fai la predizione
-        pred_mask_prob = model.predict(input_img)
-        pred_mask = tf.argmax(pred_mask_prob, axis=-1)[0]  # Rimuovi la dimensione del batch
+    # --- Esegui e visualizza le predizioni su alcune immagini di validazione ---
+    for i in range(min(NUM_PREDICTIONS_TO_SHOW, len(val_img_paths))):
+        img_path = val_img_paths[i]
+        mask_path = val_mask_paths[i]
 
-        print(f"\n--- Visualizzazione Immagine {i + 1} ---")
-        display(
-            [original_img, true_mask, pred_mask],
-            ['Immagine Originale', 'Maschera Reale', 'Maschera Predetta']
-        )
+        original_image, predicted_mask = predict_single_image(model, img_path, DEVICE)
+
+        # Carica la maschera reale per confronto
+        true_mask_raw = cv2.imread(mask_path, cv2.IMREAD_UNCHANGED)
+        true_mask_resized = cv2.resize(true_mask_raw, (224, 224), interpolation=cv2.INTER_NEAREST)
+
+        # --- Visualizza i risultati ---
+        plt.figure(figsize=(15, 5))
+
+        plt.subplot(1, 3, 1)
+        plt.title("Immagine Originale")
+        plt.imshow(cv2.resize(original_image, (224, 224)))
+        plt.axis('off')
+
+        plt.subplot(1, 3, 2)
+        plt.title("Maschera Reale (Ground Truth)")
+        plt.imshow(mask_to_rgb(true_mask_resized, color_map))
+        plt.axis('off')
+
+        plt.subplot(1, 3, 3)
+        plt.title("Maschera Predetta dal Modello")
+        plt.imshow(mask_to_rgb(predicted_mask, color_map))
+        plt.axis('off')
+
+        plt.suptitle(f"Confronto per: {os.path.basename(img_path)}")
+        plt.show()
 
 
 if __name__ == '__main__':

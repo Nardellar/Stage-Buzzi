@@ -1,0 +1,418 @@
+ANALISI DETTAGLIATA MASCHERE DI SEGMENTAZIONE
+============================================================
+
+Valori unici trovati in TUTTE le maschere: [np.int32(0), np.int32(1), np.int32(2), np.int32(3), np.int32(4), np.int32(5), np.int32(6)]
+Numero totale di classi diverse: 7
+
+DETTAGLI PER MASCHERA:
+----------------------------------------
+
+1579--03.tif:
+  Valori: [np.int32(0), np.int32(1), np.int32(2), np.int32(3), np.int32(4), np.int32(5), np.int32(6)]
+  Shape: (1024, 1024)
+  Dtype: int32
+  Range: 0 - 6
+  Distribuzione:
+    Classe 0: 944,307 pixel (90.06%)
+    Classe 2: 33,871 pixel (3.23%)
+    Classe 1: 21,492 pixel (2.05%)
+    Classe 5: 19,219 pixel (1.83%)
+    Classe 4: 12,845 pixel (1.22%)
+    Classe 6: 10,260 pixel (0.98%)
+    Classe 3: 6,582 pixel (0.63%)
+
+1579--05.tif:
+  Valori: [np.int32(0), np.int32(1), np.int32(2), np.int32(3), np.int32(4), np.int32(5)]
+  Shape: (1024, 1024)
+  Dtype: int32
+  Range: 0 - 5
+  Distribuzione:
+    Classe 0: 959,686 pixel (91.52%)
+    Classe 5: 41,066 pixel (3.92%)
+    Classe 1: 15,213 pixel (1.45%)
+    Classe 4: 13,781 pixel (1.31%)
+    Classe 2: 9,540 pixel (0.91%)
+    Classe 3: 9,290 pixel (0.89%)
+
+2201--16.tif:
+  Valori: [np.int32(0), np.int32(1), np.int32(2), np.int32(3), np.int32(5)]
+  Shape: (1024, 1024)
+  Dtype: int32
+  Range: 0 - 5
+  Distribuzione:
+    Classe 0: 982,122 pixel (93.66%)
+    Classe 2: 31,936 pixel (3.05%)
+    Classe 3: 18,933 pixel (1.81%)
+    Classe 1: 9,065 pixel (0.86%)
+    Classe 5: 6,520 pixel (0.62%)
+
+2201--24.tif:
+  Valori: [np.int32(0), np.int32(1), np.int32(2), np.int32(3), np.int32(4), np.int32(5)]
+  Shape: (1024, 1024)
+  Dtype: int32
+  Range: 0 - 5
+  Distribuzione:
+    Classe 0: 945,269 pixel (90.15%)
+    Classe 5: 53,414 pixel (5.09%)
+    Classe 4: 19,241 pixel (1.83%)
+    Classe 3: 12,547 pixel (1.20%)
+    Classe 1: 10,764 pixel (1.03%)
+    Classe 2: 7,341 pixel (0.70%)
+
+2202--17.tif:
+  Valori: [np.int32(0), np.int32(2), np.int32(3), np.int32(5)]
+  Shape: (1024, 1024)
+  Dtype: int32
+  Range: 0 - 5
+  Distribuzione:
+    Classe 0: 1,006,044 pixel (95.94%)
+    Classe 2: 20,459 pixel (1.95%)
+    Classe 3: 15,364 pixel (1.47%)
+    Classe 5: 6,709 pixel (0.64%)
+
+2202--18.tif:
+  Valori: [np.int32(0), np.int32(1), np.int32(2), np.int32(3), np.int32(5)]
+  Shape: (1024, 1024)
+  Dtype: int32
+  Range: 0 - 5
+  Distribuzione:
+    Classe 0: 984,513 pixel (93.89%)
+    Classe 3: 26,051 pixel (2.48%)
+    Classe 2: 19,992 pixel (1.91%)
+    Classe 1: 13,952 pixel (1.33%)
+    Classe 5: 4,068 pixel (0.39%)
+
+3707--19.tif:
+  Valori: [np.int32(0), np.int32(1), np.int32(2), np.int32(3), np.int32(4), np.int32(5)]
+  Shape: (1024, 1024)
+  Dtype: int32
+  Range: 0 - 5
+  Distribuzione:
+    Classe 0: 962,330 pixel (91.77%)
+    Classe 5: 24,900 pixel (2.37%)
+    Classe 4: 20,514 pixel (1.96%)
+    Classe 2: 17,156 pixel (1.64%)
+    Classe 1: 15,774 pixel (1.50%)
+    Classe 3: 7,902 pixel (0.75%)
+
+3707--20.tif:
+  Valori: [np.int32(0), np.int32(1), np.int32(2), np.int32(3), np.int32(4), np.int32(5)]
+  Shape: (1024, 1024)
+  Dtype: int32
+  Range: 0 - 5
+  Distribuzione:
+    Classe 0: 915,283 pixel (87.29%)
+    Classe 5: 62,953 pixel (6.00%)
+    Classe 4: 31,011 pixel (2.96%)
+    Classe 2: 26,971 pixel (2.57%)
+    Classe 3: 8,666 pixel (0.83%)
+    Classe 1: 3,692 pixel (0.35%)
+
+3707--31.tif:
+  Valori: [np.int32(0), np.int32(1), np.int32(2), np.int32(3), np.int32(4), np.int32(5)]
+  Shape: (1024, 1024)
+  Dtype: int32
+  Range: 0 - 5
+  Distribuzione:
+    Classe 0: 861,985 pixel (82.21%)
+    Classe 4: 67,474 pixel (6.43%)
+    Classe 1: 48,164 pixel (4.59%)
+    Classe 3: 45,517 pixel (4.34%)
+    Classe 5: 20,730 pixel (1.98%)
+    Classe 2: 4,706 pixel (0.45%)
+
+3708--19.tif:
+  Valori: [np.int32(0), np.int32(1), np.int32(2), np.int32(3), np.int32(4), np.int32(5)]
+  Shape: (1024, 1024)
+  Dtype: int32
+  Range: 0 - 5
+  Distribuzione:
+    Classe 0: 896,592 pixel (85.51%)
+    Classe 5: 51,186 pixel (4.88%)
+    Classe 1: 40,546 pixel (3.87%)
+    Classe 4: 29,375 pixel (2.80%)
+    Classe 2: 24,736 pixel (2.36%)
+    Classe 3: 6,141 pixel (0.59%)
+
+3708--49.tif:
+  Valori: [np.int32(0), np.int32(2), np.int32(3), np.int32(4), np.int32(5)]
+  Shape: (1024, 1024)
+  Dtype: int32
+  Range: 0 - 5
+  Distribuzione:
+    Classe 0: 880,804 pixel (84.00%)
+    Classe 4: 92,486 pixel (8.82%)
+    Classe 5: 46,901 pixel (4.47%)
+    Classe 3: 22,670 pixel (2.16%)
+    Classe 2: 5,715 pixel (0.55%)
+
+3708_nuova_lucidatura--10.tif:
+  Valori: [np.int32(0), np.int32(1), np.int32(2), np.int32(3), np.int32(5), np.int32(6)]
+  Shape: (1024, 1024)
+  Dtype: int32
+  Range: 0 - 6
+  Distribuzione:
+    Classe 0: 982,156 pixel (93.67%)
+    Classe 6: 26,795 pixel (2.56%)
+    Classe 2: 14,592 pixel (1.39%)
+    Classe 5: 13,947 pixel (1.33%)
+    Classe 1: 10,445 pixel (1.00%)
+    Classe 3: 641 pixel (0.06%)
+
+3814--25.tif:
+  Valori: [np.int32(0), np.int32(1), np.int32(2), np.int32(3), np.int32(4), np.int32(5)]
+  Shape: (1024, 1024)
+  Dtype: int32
+  Range: 0 - 5
+  Distribuzione:
+    Classe 0: 996,421 pixel (95.03%)
+    Classe 1: 21,398 pixel (2.04%)
+    Classe 5: 12,887 pixel (1.23%)
+    Classe 3: 10,563 pixel (1.01%)
+    Classe 2: 5,469 pixel (0.52%)
+    Classe 4: 1,838 pixel (0.18%)
+
+3814--26.tif:
+  Valori: [np.int32(0), np.int32(1), np.int32(2), np.int32(3), np.int32(4), np.int32(5)]
+  Shape: (1024, 1024)
+  Dtype: int32
+  Range: 0 - 5
+  Distribuzione:
+    Classe 0: 998,700 pixel (95.24%)
+    Classe 5: 24,371 pixel (2.32%)
+    Classe 1: 9,990 pixel (0.95%)
+    Classe 4: 9,426 pixel (0.90%)
+    Classe 3: 3,448 pixel (0.33%)
+    Classe 2: 2,641 pixel (0.25%)
+
+3814--28.tif:
+  Valori: [np.int32(0), np.int32(1), np.int32(2), np.int32(3), np.int32(4), np.int32(5)]
+  Shape: (1024, 1024)
+  Dtype: int32
+  Range: 0 - 5
+  Distribuzione:
+    Classe 0: 1,013,336 pixel (96.64%)
+    Classe 5: 13,315 pixel (1.27%)
+    Classe 1: 9,295 pixel (0.89%)
+    Classe 3: 5,125 pixel (0.49%)
+    Classe 2: 4,393 pixel (0.42%)
+    Classe 4: 3,112 pixel (0.30%)
+
+3816--25.tif:
+  Valori: [np.int32(0), np.int32(1), np.int32(2), np.int32(3), np.int32(5)]
+  Shape: (1024, 1024)
+  Dtype: int32
+  Range: 0 - 5
+  Distribuzione:
+    Classe 0: 953,190 pixel (90.90%)
+    Classe 1: 70,731 pixel (6.75%)
+    Classe 5: 16,497 pixel (1.57%)
+    Classe 3: 4,329 pixel (0.41%)
+    Classe 2: 3,829 pixel (0.37%)
+
+3816--29.tif:
+  Valori: [np.int32(0), np.int32(1), np.int32(2), np.int32(3), np.int32(4), np.int32(5)]
+  Shape: (1024, 1024)
+  Dtype: int32
+  Range: 0 - 5
+  Distribuzione:
+    Classe 0: 991,808 pixel (94.59%)
+    Classe 1: 22,391 pixel (2.14%)
+    Classe 5: 14,867 pixel (1.42%)
+    Classe 4: 9,197 pixel (0.88%)
+    Classe 2: 5,978 pixel (0.57%)
+    Classe 3: 4,335 pixel (0.41%)
+
+4309--06.tif:
+  Valori: [np.int32(0), np.int32(1), np.int32(2), np.int32(3), np.int32(4), np.int32(5)]
+  Shape: (1024, 1024)
+  Dtype: int32
+  Range: 0 - 5
+  Distribuzione:
+    Classe 0: 942,636 pixel (89.90%)
+    Classe 4: 45,901 pixel (4.38%)
+    Classe 5: 29,154 pixel (2.78%)
+    Classe 1: 12,483 pixel (1.19%)
+    Classe 3: 11,208 pixel (1.07%)
+    Classe 2: 7,194 pixel (0.69%)
+
+4309--15.tif:
+  Valori: [np.int32(0), np.int32(1), np.int32(2), np.int32(3), np.int32(4), np.int32(5)]
+  Shape: (1024, 1024)
+  Dtype: int32
+  Range: 0 - 5
+  Distribuzione:
+    Classe 0: 921,752 pixel (87.91%)
+    Classe 5: 43,751 pixel (4.17%)
+    Classe 4: 36,746 pixel (3.50%)
+    Classe 2: 20,562 pixel (1.96%)
+    Classe 1: 15,717 pixel (1.50%)
+    Classe 3: 10,048 pixel (0.96%)
+
+4311--16.tif:
+  Valori: [np.int32(0), np.int32(1), np.int32(2), np.int32(3), np.int32(4), np.int32(5)]
+  Shape: (1024, 1024)
+  Dtype: int32
+  Range: 0 - 5
+  Distribuzione:
+    Classe 0: 894,962 pixel (85.35%)
+    Classe 4: 78,504 pixel (7.49%)
+    Classe 5: 41,336 pixel (3.94%)
+    Classe 2: 24,871 pixel (2.37%)
+    Classe 3: 4,484 pixel (0.43%)
+    Classe 1: 4,419 pixel (0.42%)
+
+4311--30.tif:
+  Valori: [np.int32(0), np.int32(1), np.int32(2), np.int32(3), np.int32(4), np.int32(5)]
+  Shape: (1024, 1024)
+  Dtype: int32
+  Range: 0 - 5
+  Distribuzione:
+    Classe 0: 901,180 pixel (85.94%)
+    Classe 5: 63,218 pixel (6.03%)
+    Classe 2: 42,316 pixel (4.04%)
+    Classe 4: 29,131 pixel (2.78%)
+    Classe 1: 6,587 pixel (0.63%)
+    Classe 3: 6,144 pixel (0.59%)
+
+4311new--07.tif:
+  Valori: [np.int32(0), np.int32(1), np.int32(3), np.int32(4), np.int32(5)]
+  Shape: (1024, 1024)
+  Dtype: int32
+  Range: 0 - 5
+  Distribuzione:
+    Classe 0: 877,153 pixel (83.65%)
+    Classe 1: 134,695 pixel (12.85%)
+    Classe 4: 21,038 pixel (2.01%)
+    Classe 5: 12,372 pixel (1.18%)
+    Classe 3: 3,318 pixel (0.32%)
+
+4311new--34.tif:
+  Valori: [np.int32(0), np.int32(1), np.int32(2), np.int32(3), np.int32(4), np.int32(5)]
+  Shape: (1024, 1024)
+  Dtype: int32
+  Range: 0 - 5
+  Distribuzione:
+    Classe 0: 953,603 pixel (90.94%)
+    Classe 1: 42,283 pixel (4.03%)
+    Classe 4: 34,550 pixel (3.29%)
+    Classe 5: 10,785 pixel (1.03%)
+    Classe 2: 5,639 pixel (0.54%)
+    Classe 3: 1,716 pixel (0.16%)
+
+alite x 10--05.tif:
+  Valori: [np.int32(0), np.int32(1), np.int32(2), np.int32(3), np.int32(4), np.int32(5)]
+  Shape: (1024, 1024)
+  Dtype: int32
+  Range: 0 - 5
+  Distribuzione:
+    Classe 0: 933,183 pixel (89.00%)
+    Classe 2: 37,140 pixel (3.54%)
+    Classe 5: 33,048 pixel (3.15%)
+    Classe 1: 25,079 pixel (2.39%)
+    Classe 4: 17,755 pixel (1.69%)
+    Classe 3: 2,371 pixel (0.23%)
+
+augusta_4456_10x--06.tif:
+  Valori: [np.int32(0), np.int32(3), np.int32(4), np.int32(5), np.int32(6)]
+  Shape: (1024, 1024)
+  Dtype: int32
+  Range: 0 - 6
+  Distribuzione:
+    Classe 0: 982,398 pixel (93.69%)
+    Classe 5: 26,651 pixel (2.54%)
+    Classe 4: 19,412 pixel (1.85%)
+    Classe 6: 15,951 pixel (1.52%)
+    Classe 3: 4,164 pixel (0.40%)
+
+augusta_4456_10x--103.tif:
+  Valori: [np.int32(0), np.int32(1), np.int32(2), np.int32(3), np.int32(4), np.int32(5), np.int32(6)]
+  Shape: (1024, 1024)
+  Dtype: int32
+  Range: 0 - 6
+  Distribuzione:
+    Classe 0: 938,535 pixel (89.51%)
+    Classe 5: 38,605 pixel (3.68%)
+    Classe 1: 36,484 pixel (3.48%)
+    Classe 4: 20,586 pixel (1.96%)
+    Classe 3: 7,383 pixel (0.70%)
+    Classe 2: 4,419 pixel (0.42%)
+    Classe 6: 2,564 pixel (0.24%)
+
+Barletta_10x--67.tif:
+  Valori: [np.int32(0), np.int32(1), np.int32(2), np.int32(3), np.int32(5)]
+  Shape: (1024, 1024)
+  Dtype: int32
+  Range: 0 - 5
+  Distribuzione:
+    Classe 0: 949,803 pixel (90.58%)
+    Classe 5: 65,925 pixel (6.29%)
+    Classe 1: 11,818 pixel (1.13%)
+    Classe 2: 11,318 pixel (1.08%)
+    Classe 3: 9,712 pixel (0.93%)
+
+clksilo1.tif:
+  Valori: [np.int32(0), np.int32(1), np.int32(2), np.int32(3), np.int32(4), np.int32(5)]
+  Shape: (1024, 1024)
+  Dtype: int32
+  Range: 0 - 5
+  Distribuzione:
+    Classe 0: 936,739 pixel (89.33%)
+    Classe 5: 45,490 pixel (4.34%)
+    Classe 1: 28,497 pixel (2.72%)
+    Classe 4: 17,450 pixel (1.66%)
+    Classe 2: 14,122 pixel (1.35%)
+    Classe 3: 6,278 pixel (0.60%)
+
+fanna_4430_10x--10.tif:
+  Valori: [np.int32(0), np.int32(1), np.int32(2), np.int32(3), np.int32(4), np.int32(5)]
+  Shape: (1024, 1024)
+  Dtype: int32
+  Range: 0 - 5
+  Distribuzione:
+    Classe 0: 865,414 pixel (82.53%)
+    Classe 1: 99,399 pixel (9.48%)
+    Classe 5: 39,818 pixel (3.80%)
+    Classe 4: 32,011 pixel (3.05%)
+    Classe 3: 9,107 pixel (0.87%)
+    Classe 2: 2,827 pixel (0.27%)
+
+fanna_4430_10x--125.tif:
+  Valori: [np.int32(0), np.int32(1), np.int32(2), np.int32(3), np.int32(4), np.int32(5), np.int32(6)]
+  Shape: (1024, 1024)
+  Dtype: int32
+  Range: 0 - 6
+  Distribuzione:
+    Classe 0: 945,988 pixel (90.22%)
+    Classe 1: 37,488 pixel (3.58%)
+    Classe 5: 27,465 pixel (2.62%)
+    Classe 6: 16,980 pixel (1.62%)
+    Classe 4: 9,933 pixel (0.95%)
+    Classe 3: 9,391 pixel (0.90%)
+    Classe 2: 1,331 pixel (0.13%)
+
+immagini x10--07.tif:
+  Valori: [np.int32(0), np.int32(1), np.int32(2), np.int32(3), np.int32(4), np.int32(5)]
+  Shape: (1024, 1024)
+  Dtype: int32
+  Range: 0 - 5
+  Distribuzione:
+    Classe 0: 953,838 pixel (90.97%)
+    Classe 5: 38,265 pixel (3.65%)
+    Classe 4: 32,715 pixel (3.12%)
+    Classe 2: 11,824 pixel (1.13%)
+    Classe 1: 6,107 pixel (0.58%)
+    Classe 3: 5,827 pixel (0.56%)
+
+RS652--15.tif:
+  Valori: [np.int32(0), np.int32(1), np.int32(2), np.int32(3), np.int32(4), np.int32(5)]
+  Shape: (1024, 1024)
+  Dtype: int32
+  Range: 0 - 5
+  Distribuzione:
+    Classe 0: 931,096 pixel (88.80%)
+    Classe 5: 39,281 pixel (3.75%)
+    Classe 2: 35,448 pixel (3.38%)
+    Classe 4: 20,715 pixel (1.98%)
+    Classe 3: 16,305 pixel (1.55%)
+    Classe 1: 5,731 pixel (0.55%)
