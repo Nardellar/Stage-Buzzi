@@ -33,7 +33,7 @@ from common import csv_config
 
 # 🔧 CLASSE MIGLIORATA CON REGULARIZZAZIONE
 class ViTForCustomClassificationImproved(tf.keras.Model):
-    def __init__(self, num_labels, dropout_rate=0.3, **kwargs):
+    def __init__(self, num_labels, dropout_rate=0.1, **kwargs):  # FIX: Ridotto da 0.3 a 0.1
         super().__init__(**kwargs)
         self.vit = TFViTModel.from_pretrained(
             "google/vit-base-patch16-224",
@@ -44,12 +44,12 @@ class ViTForCustomClassificationImproved(tf.keras.Model):
         self.dropout = layers.Dropout(dropout_rate)
         self.batch_norm = layers.BatchNormalization()
         
-        # 🔧 REGULARIZZAZIONE: Dense layer con L2 regularization
+        # 🔧 REGULARIZZAZIONE LEGGERA: Dense layer con L2 regularization
         self.classifier = layers.Dense(
             num_labels, 
             name="classifier",
-            kernel_regularizer=tf.keras.regularizers.l2(0.01),
-            bias_regularizer=tf.keras.regularizers.l2(0.01)
+            kernel_regularizer=tf.keras.regularizers.l2(0.001),  # FIX: Ridotto da 0.01 a 0.001
+            bias_regularizer=tf.keras.regularizers.l2(0.001)     # FIX: Ridotto da 0.01 a 0.001
         )
 
     def call(self, inputs, training=False, output_attentions=False):
@@ -105,12 +105,12 @@ def prepare_dataset_improved(attribute: str, batch_size: int):
         print(f"  - Classe '{id2label[class_id]}': {count} immagini")
     print("---------------------------------------------------------")
 
-    # 🔧 OVERSAMPLING SEMPLIFICATO: Usa solo il dataset originale
-    print("\n--- Bilanciamento del dataset (semplificato)... ---")
-    print("⚠️  Usando dataset originale senza oversampling per evitare problemi di features")
-    print("💡 Il bilanciamento verrà gestito tramite class weights durante l'addestramento")
+    # 🔧 BILANCIAMENTO CON SOLO CLASS WEIGHTS (FIX: Rimosso oversampling)
+    print("\n--- Bilanciamento del dataset con class weights... ---")
+    print("✅ Usando SOLO class weights (NO oversampling per evitare duplicati)")
+    print("💡 Approccio più pulito: nessun duplicato artificiale, nessun overfitting sui duplicati")
     
-    # Mantieni il dataset originale senza modifiche
+    # Mantieni il dataset originale senza duplicazione
     train_ds = train_ds.shuffle(seed=42)
 
     print("\n--- Analisi del bilanciamento (FINAL) ---")
@@ -128,7 +128,8 @@ def prepare_dataset_improved(attribute: str, batch_size: int):
         class_weights[class_id] = weight
         print(f"  - Classe '{id2label[class_id]}': weight = {weight:.3f}")
     
-    print("💡 Class weights calcolati per bilanciamento automatico")
+    print("💡 Class weights calcolati per bilanciamento matematicamente equivalente all'oversampling")
+    print("✅ Vantaggi: nessun duplicato, nessun overfitting artificiale, training più veloce")
 
     processor = AutoImageProcessor.from_pretrained("google/vit-base-patch16-224")
     def transform(batch):
@@ -383,10 +384,10 @@ def get_improved_callbacks():
 def compile_improved_model(model):
     """Compila il modello con ottimizzazioni avanzate"""
     
-    # 🔧 OPTIMIZER MIGLIORATO
+    # 🔧 OPTIMIZER OTTIMIZZATO (FIX UNDERFITTING)
     optimizer = tf.keras.optimizers.AdamW(
-        learning_rate=1e-5,  # Era 5e-5
-        weight_decay=1e-4,   # NUOVO: Weight decay
+        learning_rate=5e-5,  # FIX: Aumentato da 1e-5 (era troppo basso!)
+        weight_decay=1e-5,   # FIX: Ridotto da 1e-4 (era troppo aggressivo!)
         beta_1=0.9,
         beta_2=0.999,
         epsilon=1e-8
@@ -632,7 +633,7 @@ def main_improved() -> None:
         history = model.fit(
             train_ds, 
             validation_data=val_ds, 
-            epochs=25, 
+            epochs=75,  # FIX: Aumentato da 25 a 75 per superare underfitting
             callbacks=callbacks,
             class_weight=class_weights
         )
