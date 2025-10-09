@@ -633,7 +633,7 @@ def main_improved() -> None:
         history = model.fit(
             train_ds, 
             validation_data=val_ds, 
-            epochs=75,  # FIX: Aumentato da 25 a 75 per superare underfitting
+            epochs=100,  # FIX: Aumentato da 25 a 75 per superare underfitting
             callbacks=callbacks,
             class_weight=class_weights
         )

@@ -234,7 +234,7 @@ def main() -> None:
                   loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
                   metrics=["accuracy"])
     print("\n--- Inizio dell'addestramento (con oversampling e augmentation)... ---")
-    history = model.fit(train_ds, validation_data=val_ds, epochs=25, callbacks=[early_stopping])
+    history = model.fit(train_ds, validation_data=val_ds, epochs=100, callbacks=[early_stopping])
 
     save_path = results_dir / f"vit_from_hf_{attribute}.keras"
     model.save(save_path)
