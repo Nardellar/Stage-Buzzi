@@ -232,9 +232,13 @@ def create_training_plots(history, results_dir, attribute):
     axes[0, 0].legend()
     axes[0, 0].grid(True)
     
-    # Accuracy
-    axes[0, 1].plot(history.history['sparse_categorical_accuracy'], label='Training Accuracy')
-    axes[0, 1].plot(history.history['val_sparse_categorical_accuracy'], label='Validation Accuracy')
+    # Accuracy (con gestione automatica del nome della metrica)
+    # Gestisce sia 'accuracy' che 'sparse_categorical_accuracy'
+    acc_key = 'accuracy' if 'accuracy' in history.history else 'sparse_categorical_accuracy'
+    val_acc_key = 'val_accuracy' if 'val_accuracy' in history.history else 'val_sparse_categorical_accuracy'
+    
+    axes[0, 1].plot(history.history[acc_key], label='Training Accuracy')
+    axes[0, 1].plot(history.history[val_acc_key], label='Validation Accuracy')
     axes[0, 1].set_title('Accuracy')
     axes[0, 1].set_xlabel('Epoch')
     axes[0, 1].set_ylabel('Accuracy')
@@ -541,6 +545,22 @@ def cross_validate_improved(attribute: str, n_splits=5, epochs=10):
         'fold_results': fold_results
     }
 
+def get_metric_name(history, base_name):
+    """Helper per trovare il nome corretto della metrica"""
+    # Prova diversi nomi possibili
+    possible_names = [
+        base_name,
+        f'sparse_categorical_{base_name}',
+        f'categorical_{base_name}'
+    ]
+    
+    for name in possible_names:
+        if name in history.history:
+            return name
+    
+    # Se non trovato, restituisci il primo disponibile
+    return list(history.history.keys())[0] if history.history else base_name
+
 
 def create_tf_datasets_improved(train_images, train_labels, val_images, val_labels):
     """Crea dataset TensorFlow migliorati"""
@@ -649,13 +669,15 @@ def main_improved() -> None:
         model.save(save_path)
         print(f"\n✅ Modello migliorato salvato: {save_path}")
         
-        # Salva risultati riassuntivi
+        # Salva risultati riassuntivi (con gestione automatica nomi metriche)
+        val_acc_key = 'val_accuracy' if 'val_accuracy' in history.history else 'val_sparse_categorical_accuracy'
+        
         summary = {
             'attribute': attribute,
             'final_accuracy': evaluation_report['accuracy'],
             'training_epochs': len(history.history['loss']),
             'best_val_loss': min(history.history['val_loss']),
-            'best_val_accuracy': max(history.history['val_sparse_categorical_accuracy']),
+            'best_val_accuracy': max(history.history[val_acc_key]),
             'timestamp': datetime.now().isoformat()
         }
         
