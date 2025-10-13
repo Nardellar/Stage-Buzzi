@@ -32,6 +32,7 @@ from common import csv_config
 
 
 # 🔧 CLASSE MIGLIORATA CON REGULARIZZAZIONE
+@tf.keras.saving.register_keras_serializable(package="Custom", name="ViTForCustomClassificationImproved")
 class ViTForCustomClassificationImproved(tf.keras.Model):
     def __init__(self, num_labels, dropout_rate=0.1, **kwargs):  # FIX: Ridotto da 0.3 a 0.1
         super().__init__(**kwargs)
@@ -69,6 +70,23 @@ class ViTForCustomClassificationImproved(tf.keras.Model):
         if output_attentions:
             return {"logits": logits, "attentions": outputs.attentions}
         return {"logits": logits}
+    
+    def get_config(self):
+        """Necessario per il salvataggio del modello"""
+        config = super().get_config()
+        config.update({
+            "num_labels": self.classifier.units,
+            "dropout_rate": self.dropout.rate
+        })
+        return config
+    
+    @classmethod
+    def from_config(cls, config):
+        """Necessario per il caricamento del modello"""
+        # Gestisce modelli salvati prima dell'aggiunta di get_config()
+        num_labels = config.pop("num_labels", 3)  # Default 3 classi
+        dropout_rate = config.pop("dropout_rate", 0.1)
+        return cls(num_labels=num_labels, dropout_rate=dropout_rate, **config)
 
 
 # 🔧 FUNZIONE MIGLIORATA PER PREPARARE IL DATASET
@@ -277,6 +295,58 @@ def create_training_plots(history, results_dir, attribute):
     print(f"📊 Grafici di training salvati: {plot_path}")
 
 
+def save_attention_maps(model, dataset, id2label, results_dir, attribute, num_images=8):
+    """
+    Genera e salva le mappe di attenzione del modello ViT.
+    Può essere usata con un modello già addestrato.
+    """
+    print("\n--- Generazione e salvataggio delle Mappe di Attenzione ---")
+
+    for inputs, labels in dataset.take(1):
+        outputs = model(inputs, training=False, output_attentions=True)
+        last_layer_attentions = outputs["attentions"][-1]
+        avg_attentions = tf.reduce_mean(last_layer_attentions, axis=1)
+        cls_token_attention = avg_attentions[:, 0, 1:]
+        num_patches_side = int(np.sqrt(cls_token_attention.shape[-1]))
+        attention_maps = tf.reshape(cls_token_attention, (-1, num_patches_side, num_patches_side))
+        predictions = tf.argmax(outputs["logits"], axis=-1)
+
+        plt.figure(figsize=(20, 10))
+        plt.suptitle("Mappe di Attenzione del Modello ViT Migliorato", fontsize=20)
+
+        for i in range(min(num_images, len(inputs['pixel_values']))):
+            img = inputs['pixel_values'][i].numpy()
+            if img.shape[0] == 3: 
+                img = np.transpose(img, (1, 2, 0))
+            img = (img - img.min()) / (img.max() - img.min())
+
+            heatmap = tf.image.resize(
+                tf.expand_dims(attention_maps[i], axis=-1), 
+                [img.shape[0], img.shape[1]]
+            )
+
+            ax = plt.subplot(2, num_images // 2, i + 1)
+            plt.imshow(img)
+            plt.imshow(heatmap, cmap='jet', alpha=0.5)
+
+            true_label = id2label.get(labels[i].numpy(), "N/A")
+            pred_label = id2label.get(predictions[i].numpy(), "N/A")
+
+            plt.title(
+                f"Vero: {true_label}\nPredetto: {pred_label}",
+                color=("green" if true_label == pred_label else "red")
+            )
+            plt.axis("off")
+
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+
+    # Salva la figura
+    save_path = results_dir / f"attention_map_{attribute}.png"
+    plt.savefig(save_path, dpi=300, bbox_inches='tight')
+    plt.close()
+    print(f"✅ Mappa di attenzione salvata in: {save_path}")
+
+
 def get_advanced_callbacks(results_dir, attribute):
     """Callbacks avanzati per il training"""
     
@@ -336,10 +406,10 @@ def augment_image_improved(features, labels):
     # Applica augmentation solo se l'immagine ha 3 canali
     if image.shape[-1] == 3:
         # Random flip orizzontale (50% probabilità)
-        image = tf.image.random_flip_left_right(image)
+    image = tf.image.random_flip_left_right(image)
         
         # Random flip verticale (50% probabilità)  
-        image = tf.image.random_flip_up_down(image)
+    image = tf.image.random_flip_up_down(image)
         
         # Random brightness (moderato)
         image = tf.image.random_brightness(image, max_delta=0.1)
@@ -400,8 +470,8 @@ def compile_improved_model(model):
     # 🔧 LOSS CON LABEL SMOOTHING (con fallback)
     try:
         # Prova con label smoothing
-        loss = tf.keras.losses.SparseCategoricalCrossentropy(
-            from_logits=True,
+    loss = tf.keras.losses.SparseCategoricalCrossentropy(
+        from_logits=True,
             label_smoothing=0.1  # Label smoothing per migliorare generalizzazione
         )
         print("✅ Label smoothing abilitato (0.1)")
@@ -453,8 +523,8 @@ def cross_validate_improved(attribute: str, n_splits=5, epochs=10):
         if attr_value != -1:
             # Controlla che l'immagine non sia None
             if example["image"] is not None:
-                images.append(example["image"])
-                labels.append(label2id[attr_value])
+            images.append(example["image"])
+            labels.append(label2id[attr_value])
     
     print(f"📊 Dati filtrati: {len(images)} immagini valide, {len(labels)} etichette")
     
@@ -580,11 +650,11 @@ def create_tf_datasets_improved(train_images, train_labels, val_images, val_labe
     
     def transform_batch(images, labels):
         try:
-            processed = processor(images=images, return_tensors="tf")
-            return {
-                "pixel_values": processed["pixel_values"],
-                "labels": tf.convert_to_tensor(labels, dtype=tf.int32)
-            }
+        processed = processor(images=images, return_tensors="tf")
+        return {
+            "pixel_values": processed["pixel_values"],
+            "labels": tf.convert_to_tensor(labels, dtype=tf.int32)
+        }
         except Exception as e:
             print(f"❌ Errore nel processamento: {e}")
             return None
@@ -663,6 +733,9 @@ def main_improved() -> None:
         
         # Grafici di training
         create_training_plots(history, results_dir, attribute)
+        
+        # Mappe di attenzione
+        save_attention_maps(model, val_ds, id2label, results_dir, attribute)
         
         # Salva modello finale
         save_path = results_dir / f"vit_improved_{attribute}_final.keras"
