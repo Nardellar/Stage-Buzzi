@@ -18,3 +18,5 @@ torchvision==0.23.0
 ipython==9.5.0
 transformers==4.56.1
 datasets==4.0.0
+albumentations==1.4.21
+pydensecrf2==1.1

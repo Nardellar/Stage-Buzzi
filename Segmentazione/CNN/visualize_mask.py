@@ -10,7 +10,8 @@ IMAGE_DIR = "../images/Immagini/"
 MASK_DIR = "../images/Maschere/"
 
 # Seleziona quale coppia immagine/maschera vuoi visualizzare (es. il primo file, il decimo, ecc.)
-FILE_INDEX = 3  # Modifica questo indice per visualizzare file diversi
+FILE_INDEX = 3
+#NON ADDESTRARE LA CLASSE Modifica questo indice per visualizzare file diversi
 
 
 def visualize_single_mask():
