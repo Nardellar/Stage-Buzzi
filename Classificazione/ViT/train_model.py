@@ -30,6 +30,7 @@ class ViTForCustomClassificationImproved(tf.keras.Model):
     def __init__(self, num_labels, dropout_rate=0.1, **kwargs):
         super().__init__(**kwargs)
         self.vit = TFViTModel.from_pretrained("google/vit-base-patch16-224", from_pt=True)
+        self.vit.trainable = False
         self.dropout = layers.Dropout(dropout_rate)
         self.batch_norm = layers.BatchNormalization()
         self.classifier = layers.Dense(
@@ -100,8 +101,11 @@ def prepare_and_split_dataset(attribute: str, batch_size: int):
 
     processor = AutoImageProcessor.from_pretrained("google/vit-base-patch16-224")
     def transform(batch):
-        processed = processor(images=batch["image"], return_tensors="tf")
-        batch["pixel_values"] = processed["pixel_values"]
+        # 1. Usa il processore "fast" ma SENZA return_tensors.
+        #    Questo restituisce array NumPy, che è ciò che il processore fast supporta.
+        processed = processor(images=batch["image"], return_tensors="tf")  # <-- Cambia qui
+        # 2. Converti manualmente gli array NumPy in Tensori TensorFlow.
+        batch["pixel_values"] = tf.convert_to_tensor(processed["pixel_values"])
         batch["labels"] = tf.convert_to_tensor(batch["attribute"], dtype=tf.int32)
         return batch
 
@@ -114,22 +118,39 @@ def prepare_and_split_dataset(attribute: str, batch_size: int):
 
     return train_tf, val_tf, num_classes, id2label, class_weights
 
+augmentation_layers = tf.keras.Sequential([
+    tf.keras.layers.RandomFlip("horizontal_and_vertical"),
+    tf.keras.layers.RandomRotation(factor=0.1),
+    tf.keras.layers.GaussianNoise(stddev=0.1)
+    # Add other Keras augmentation layers here if needed
+])
+
 # CORREZIONE: La funzione ora accetta (features, labels) come previsto dalla nuova versione di 'datasets'
 def augment_image(pixel_values, labels):
-    """Data augmentation per le immagini in formato dizionario."""
+    """Data augmentation più aggressiva per le immagini."""
     image = pixel_values
+
     # Transpose da (batch, C, H, W) a (batch, H, W, C) per le funzioni di tf.image
-    if len(image.shape) == 4: image = tf.transpose(image, [0, 2, 3, 1])
-    # Applica le augmentation
+    if len(image.shape) == 4:
+        image = tf.transpose(image, [0, 2, 3, 1])
+
+    # Applica le augmentation DEFINITE FUORI
     if image.shape[-1] == 3:
-        image = tf.image.random_flip_left_right(image)
-        image = tf.image.random_flip_up_down(image)
+        # --- INIZIO CORREZIONE ---
+        # Call the pre-defined layers, ensure training=True for noise etc.
+        image = augmentation_layers(image, training=True)
+        # Apply brightness separately as it's not a layer
+        image = tf.image.random_brightness(image, max_delta=0.1)
+        # --- FINE CORREZIONE ---
 
     # Transpose di nuovo al formato originale (batch, C, H, W)
-    if len(image.shape) == 4: image = tf.transpose(image, [0, 3, 1, 2])
+    if len(image.shape) == 4:
+        image = tf.transpose(image, [0, 3, 1, 2])
 
-    # Restituisce i dati nel formato a dizionario che il modello si aspetta
-    return {'pixel_values': image}, labels
+    # Return the dictionary format expected by the model
+    return image, labels
+
+
 
 def compile_model(num_classes):
     model = ViTForCustomClassificationImproved(num_labels=num_classes)
@@ -152,6 +173,13 @@ def main_train():
 
     train_tf_augmented = train_tf.map(augment_image, num_parallel_calls=tf.data.AUTOTUNE)
 
+    def format_for_model(pixel_values, labels):
+        return {'pixel_values': pixel_values}, labels
+
+    train_tf_final = train_tf_augmented.map(format_for_model, num_parallel_calls=tf.data.AUTOTUNE)
+    val_tf_final = val_tf.map(format_for_model, num_parallel_calls=tf.data.AUTOTUNE)  # Applica anche a val_tf
+
+
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     model_path = results_dir / f"best_model_{attribute}_{timestamp}.weights.h5"
 
@@ -163,7 +191,7 @@ def main_train():
     ]
 
     print("\n--- Inizio addestramento ---")
-    model.fit(train_tf_augmented, validation_data=val_tf, epochs=100, callbacks=callbacks, class_weight=class_weights)
+    model.fit(train_tf_final, validation_data=val_tf_final, epochs=100, callbacks=callbacks, class_weight=class_weights)
 
     artifacts = {
         'attribute': attribute,

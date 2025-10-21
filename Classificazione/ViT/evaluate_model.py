@@ -14,6 +14,7 @@ from transformers import AutoImageProcessor
 from sklearn.metrics import classification_report, confusion_matrix
 import matplotlib.pyplot as plt
 import seaborn as sns
+from PIL import Image
 
 # È necessario importare la classe del modello per poter ricreare l'architettura
 # prima di caricare i pesi.
@@ -21,6 +22,8 @@ from train_model import ViTForCustomClassificationImproved
 
 
 # --- FUNZIONI DI VALUTAZIONE E VISUALIZZAZIONE ---
+
+# (in evaluate_model.py)
 
 def load_test_data(batch_size: int):
     try:
@@ -32,13 +35,36 @@ def load_test_data(batch_size: int):
     processor = AutoImageProcessor.from_pretrained("google/vit-base-patch16-224")
 
     def transform(batch):
-        processed = processor(images=batch["image"], return_tensors="tf")
+        # Carica le immagini dai percorsi
+        images_loaded = [Image.open(img_data['path']) for img_data in batch["image"]]
+        # Ora passa le immagini caricate al processore
+        processed = processor(images=images_loaded, return_tensors="tf")
         batch["pixel_values"] = processed["pixel_values"]
         batch["labels"] = tf.convert_to_tensor(batch["attribute"], dtype=tf.int32)
         return batch
 
     test_ds = test_ds.map(transform, batched=True, batch_size=batch_size)
-    return test_ds.to_tf_dataset(columns=["pixel_values"], label_cols=["labels"], batch_size=batch_size, shuffle=False)
+
+    # --- INIZIO CORREZIONE ---
+
+    # 1. Crea il dataset TF (questo crea la tupla (features, labels))
+    test_tf = test_ds.to_tf_dataset(
+        columns=["pixel_values"],
+        label_cols=["labels"],
+        batch_size=batch_size,
+        shuffle=False
+    )
+
+    # 2. Mappa la tupla al formato dizionario che il modello si aspetta
+    #    (tensor, tensor) -> (dict, tensor)
+    test_tf_mapped = test_tf.map(
+        lambda pixel_values, labels: ({'pixel_values': pixel_values}, labels),
+        num_parallel_calls=tf.data.AUTOTUNE
+    )
+
+    # 3. Ritorna SOLO il dataset mappato
+    return test_tf_mapped
+    # --- FINE CORREZIONE ---
 
 
 def evaluate_and_report(model, test_dataset, id2label, results_dir, attribute):
