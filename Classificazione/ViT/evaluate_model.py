@@ -41,6 +41,14 @@ def load_test_data(batch_size: int):
         processed = processor(images=images_loaded, return_tensors="tf")
         batch["pixel_values"] = processed["pixel_values"]
         batch["labels"] = tf.convert_to_tensor(batch["attribute"], dtype=tf.int32)
+        
+        # ✅ CORREZIONE: Gestisci il caso in cui original_label_id non esiste
+        if "original_label_id" in batch:
+            batch["original_labels"] = tf.convert_to_tensor(batch["original_label_id"], dtype=tf.int32)
+        else:
+            # Se non esiste, usa le stesse etichette di attribute
+            batch["original_labels"] = tf.convert_to_tensor(batch["attribute"], dtype=tf.int32)
+        
         return batch
 
     test_ds = test_ds.map(transform, batched=True, batch_size=batch_size)
@@ -49,16 +57,16 @@ def load_test_data(batch_size: int):
 
     # 1. Crea il dataset TF (questo crea la tupla (features, labels))
     test_tf = test_ds.to_tf_dataset(
-        columns=["pixel_values"],
+        columns=["pixel_values"],  # ✅ CORREZIONE: Solo pixel_values per semplicità
         label_cols=["labels"],
         batch_size=batch_size,
         shuffle=False
     )
 
     # 2. Mappa la tupla al formato dizionario che il modello si aspetta
-    #    (tensor, tensor) -> (dict, tensor)
+    #    (pixel_values, labels) -> (dict, tensor)
     test_tf_mapped = test_tf.map(
-        lambda pixel_values, labels: ({'pixel_values': pixel_values}, labels),
+        lambda pixel_values, labels: ({'pixel_values': pixel_values}, labels),  # ✅ CORREZIONE: Gestisci correttamente le features
         num_parallel_calls=tf.data.AUTOTUNE
     )
 
@@ -157,12 +165,18 @@ def main_evaluate():
 
     print(f"\n🔄 Ricostruzione dell'architettura del modello...")
     model = ViTForCustomClassificationImproved(num_labels=num_classes)
-    # È necessario "costruire" il modello facendogli vedere un input di esempio
-    # prima di poter caricare i pesi
+    
+    # ✅ CORREZIONE CRITICA: Inizializza il modello con un input dummy CORRETTO
+    print("🔄 Inizializzazione del modello con input dummy...")
     dummy_input = {'pixel_values': tf.zeros([1, 3, 224, 224])}
-    model(dummy_input)
+    _ = model(dummy_input, training=False)  # Inizializza TUTTI i layer
+    
     print(f"🔄 Caricamento dei pesi da: {model_weights_path}")
     model.load_weights(model_weights_path)
+    
+    # ✅ VERIFICA: Testa il modello caricato con un input dummy
+    test_output = model(dummy_input, training=False)
+    print(f"✅ Modello caricato correttamente. Output shape: {test_output['logits'].shape}")
 
     test_tf = load_test_data(batch_size=16)
     if test_tf is None: return

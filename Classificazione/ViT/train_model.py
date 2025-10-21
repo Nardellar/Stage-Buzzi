@@ -30,7 +30,7 @@ class ViTForCustomClassificationImproved(tf.keras.Model):
     def __init__(self, num_labels, dropout_rate=0.1, **kwargs):
         super().__init__(**kwargs)
         self.vit = TFViTModel.from_pretrained("google/vit-base-patch16-224", from_pt=True)
-        self.vit.trainable = False
+        self.vit.trainable = False  # ✅ CORRETTO: Congela il ViT per evitare overfitting con dataset piccolo
         self.dropout = layers.Dropout(dropout_rate)
         self.batch_norm = layers.BatchNormalization()
         self.classifier = layers.Dense(
@@ -52,9 +52,21 @@ class ViTForCustomClassificationImproved(tf.keras.Model):
         return {"logits": logits}
 
     def get_config(self):
+        """Necessario per il salvataggio del modello"""
         config = super().get_config()
-        config.update({"num_labels": self.classifier.units, "dropout_rate": self.dropout.rate})
+        config.update({
+            "num_labels": self.classifier.units,
+            "dropout_rate": self.dropout.rate
+        })
         return config
+
+    @classmethod
+    def from_config(cls, config):
+        """Necessario per il caricamento del modello"""
+        # Gestisce modelli salvati prima dell'aggiunta di get_config()
+        num_labels = config.pop("num_labels", 3)  # Default 3 classi
+        dropout_rate = config.pop("dropout_rate", 0.1)
+        return cls(num_labels=num_labels, dropout_rate=dropout_rate, **config)
 
 # --- FUNZIONI DI PREPARAZIONE E TRAINING ---
 
@@ -76,7 +88,9 @@ def prepare_and_split_dataset(attribute: str, batch_size: int):
 
     def add_attribute(example):
         class_name = ds.features["label"].int2str(example["label"])
-        example["attribute"] = label2id.get(attr_map.get(class_name, -1), -1)
+        raw_attribute_value = attr_map.get(class_name, -1)
+        example["attribute"] = label2id.get(raw_attribute_value, -1)
+        example["original_label_id"] = example["label"]  # ✅ CORREZIONE: Mantieni l'ID originale
         return example
 
     ds = ds.map(add_attribute).filter(lambda ex: ex["attribute"] != -1)
@@ -107,14 +121,15 @@ def prepare_and_split_dataset(attribute: str, batch_size: int):
         # 2. Converti manualmente gli array NumPy in Tensori TensorFlow.
         batch["pixel_values"] = tf.convert_to_tensor(processed["pixel_values"])
         batch["labels"] = tf.convert_to_tensor(batch["attribute"], dtype=tf.int32)
+        batch["original_labels"] = tf.convert_to_tensor(batch["original_label_id"], dtype=tf.int32)  # ✅ CORREZIONE: Aggiungi original_labels
         return batch
 
     train_ds = train_ds.map(transform, batched=True, batch_size=batch_size)
     val_ds = val_ds.map(transform, batched=True, batch_size=batch_size)
 
     # Con la nuova versione di datasets, il formato sarà {features}, {labels}
-    train_tf = train_ds.to_tf_dataset(columns=["pixel_values"], label_cols=["labels"], batch_size=batch_size, shuffle=True)
-    val_tf = val_ds.to_tf_dataset(columns=["pixel_values"], label_cols=["labels"], batch_size=batch_size, shuffle=False)
+    train_tf = train_ds.to_tf_dataset(columns=["pixel_values", "original_labels"], label_cols=["labels"], batch_size=batch_size, shuffle=True)
+    val_tf = val_ds.to_tf_dataset(columns=["pixel_values", "original_labels"], label_cols=["labels"], batch_size=batch_size, shuffle=False)
 
     return train_tf, val_tf, num_classes, id2label, class_weights
 
@@ -173,7 +188,12 @@ def main_train():
 
     train_tf_augmented = train_tf.map(augment_image, num_parallel_calls=tf.data.AUTOTUNE)
 
-    def format_for_model(pixel_values, labels):
+    def format_for_model(features, labels):
+        # ✅ CORREZIONE: Gestisci correttamente le features che ora includono original_labels
+        if isinstance(features, tuple):
+            pixel_values, original_labels = features
+        else:
+            pixel_values = features
         return {'pixel_values': pixel_values}, labels
 
     train_tf_final = train_tf_augmented.map(format_for_model, num_parallel_calls=tf.data.AUTOTUNE)
