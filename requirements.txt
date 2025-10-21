@@ -19,4 +19,4 @@ ipython==9.5.0
 transformers==4.56.1
 datasets==4.0.0
 albumentations==1.4.21
-pydensecrf2==1.1
+#pydensecrf2==1.1 #serve compilatore c per poter scaricare
