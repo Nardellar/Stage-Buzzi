@@ -51,7 +51,10 @@ def main():
         model.extract_features_improved()
         
         print("\n3. Training con ottimizzazione Optuna...")
-        test_accuracy = model.train_classifier_with_optuna(n_trials=50)
+        # Riduci trials per EfficientNetB0 (più lento)
+        n_trials = 20 if args.cnn_model == 'efficientnet_b0' else 50
+        print(f"   Trials ottimizzati: {n_trials} (ridotto per EfficientNetB0)")
+        test_accuracy = model.train_classifier_with_optuna(n_trials=n_trials)
         
         print("\n4. Salvataggio modello...")
         model.save_model_complete('improved_cnn_model.pkl')  # Fisso
