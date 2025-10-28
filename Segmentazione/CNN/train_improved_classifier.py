@@ -11,9 +11,9 @@ from improved_cnn_classifier import ImprovedCNNSegmentationClassifier
 
 def main():
     parser = argparse.ArgumentParser(description='Training CNN + Classificatore Migliorato')
-    parser.add_argument('--cnn_model', type=str, default='efficientnet_b0', 
-                       choices=['efficientnet_b0', 'resnet50', 'vgg16'],
-                       help='Modello CNN da utilizzare (efficientnet_b0 consigliato)')
+    parser.add_argument('--cnn_model', type=str, default='convnext_tiny', 
+                       choices=['convnext_tiny', 'convnext_small', 'densenet121', 'densenet201', 'efficientnetv2_b0', 'efficientnetv2_b1', 'resnet101', 'efficientnet_b0', 'resnet50', 'vgg16'],
+                       help='Modello CNN da utilizzare (convnext_tiny consigliato per segmentazione)')
     parser.add_argument('--batch_size', type=int, default=2,
                        help='Batch size per il training (1 per GPU piccola, 4-8 per GPU grande)')
     parser.add_argument('--classifier', type=str, default='xgboost', 
@@ -51,9 +51,9 @@ def main():
         model.extract_features_improved()
         
         print("\n3. Training con ottimizzazione Optuna...")
-        # Riduci trials per EfficientNetB0 (più lento)
-        n_trials = 20 if args.cnn_model == 'efficientnet_b0' else 50
-        print(f"   Trials ottimizzati: {n_trials} (ridotto per EfficientNetB0)")
+        # Riduci trials per evitare blocchi
+        n_trials = 10  # Ridotto drasticamente per evitare blocchi
+        print(f"   Trials ottimizzati: {n_trials} (ridotto per evitare blocchi)")
         test_accuracy = model.train_classifier_with_optuna(n_trials=n_trials)
         
         print("\n4. Salvataggio modello...")

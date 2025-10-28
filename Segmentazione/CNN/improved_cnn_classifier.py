@@ -9,7 +9,9 @@ import os
 import glob
 from PIL import Image
 import tensorflow as tf
-from tensorflow.keras.applications import ResNet50, EfficientNetB0, VGG16
+from tensorflow.keras.applications import ResNet50, EfficientNetB0, VGG16, DenseNet121
+from tensorflow.keras.applications import ResNet101, DenseNet201, ConvNeXtTiny, ConvNeXtSmall
+from tensorflow.keras.applications import EfficientNetV2B0, EfficientNetV2B1
 from tensorflow.keras.layers import Concatenate
 from tensorflow.keras.models import Model
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
@@ -23,8 +25,9 @@ import optuna
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 import albumentations as A
-import pydensecrf.densecrf as dcrf
-from pydensecrf.utils import unary_from_labels, create_pairwise_gaussian, create_pairwise_bilateral
+# Rimuoviamo pydensecrf - mal supportato
+# import pydensecrf.densecrf as dcrf
+# from pydensecrf.utils import unary_from_labels, create_pairwise_gaussian, create_pairwise_bilateral
 
 
 class ImprovedCNNSegmentationClassifier:
@@ -109,25 +112,39 @@ class ImprovedCNNSegmentationClassifier:
         
         if self.cnn_model_name == 'efficientnet_b0':
             # Fix per compatibilità EfficientNetB0
-            base_model = EfficientNetB0(
-                weights=None,  # Non carichiamo i pesi pre-addestrati per evitare problemi
-                include_top=False, 
-                input_shape=(*self.image_size, 3)
-            )
-            # Carichiamo manualmente i pesi per evitare problemi di compatibilità
             try:
-                from tensorflow.keras.utils import get_file
-                weights_path = get_file(
-                    'efficientnet_b0_notop.h5',
-                    'https://storage.googleapis.com/tensorflow/keras-applications/efficientnet/efficientnetb0_notop.h5',
-                    cache_subdir='models'
+                # Prova prima con input_shape standard
+                base_model = EfficientNetB0(
+                    weights='imagenet',
+                    include_top=False, 
+                    input_shape=(224, 224, 3)  # Usa dimensioni standard
                 )
-                base_model.load_weights(weights_path)
-            except:
-                print("Warning: Non è stato possibile caricare i pesi pre-addestrati per EfficientNetB0")
-                print("Il modello verrà inizializzato con pesi casuali")
-            
-            layer_names = ['block4a_expand_activation']  # Solo layer finale per EfficientNetB0
+                print("EfficientNetB0 caricato con pesi ImageNet pre-addestrati (224x224)")
+                
+                # Ridimensiona l'input per le nostre immagini
+                inputs = tf.keras.Input(shape=(*self.image_size, 3))
+                resized_inputs = tf.keras.layers.Resizing(224, 224)(inputs)
+                features = base_model(resized_inputs)
+                
+                # Upsample le features per tornare alle dimensioni originali
+                upsampled_features = tf.keras.layers.UpSampling2D(
+                    size=(self.image_size[0]//224, self.image_size[1]//224)
+                )(features)
+                
+                # Crea il modello finale
+                base_model = Model(inputs, upsampled_features)
+                layer_names = ['up_sampling2d']  # Layer finale
+                
+            except Exception as e:
+                print(f"ERRORE EfficientNetB0: {e}")
+                print("FALLBACK: Uso ResNet50")
+                base_model = ResNet50(
+                    weights='imagenet',
+                    include_top=False, 
+                    input_shape=(*self.image_size, 3)
+                )
+                self.cnn_model_name = 'resnet50'
+                layer_names = ['conv2_block3_out', 'conv3_block4_out', 'conv4_block6_out']
             
         elif self.cnn_model_name == 'resnet50':
             base_model = ResNet50(
@@ -144,6 +161,78 @@ class ImprovedCNNSegmentationClassifier:
                 input_shape=(*self.image_size, 3)
             )
             layer_names = ['block1_conv2', 'block2_conv2', 'block3_conv3']
+            
+        elif self.cnn_model_name == 'densenet121':
+            base_model = DenseNet121(
+                weights='imagenet',
+                include_top=False,
+                input_shape=(*self.image_size, 3)
+            )
+            layer_names = ['conv3_block12_concat', 'conv4_block24_concat', 'conv5_block16_concat']
+            print("DenseNet121 caricato - OTTIMO per segmentazione e dataset piccoli")
+            
+        elif self.cnn_model_name == 'densenet201':
+            base_model = DenseNet201(
+                weights='imagenet',
+                include_top=False,
+                input_shape=(*self.image_size, 3)
+            )
+            layer_names = ['conv3_block12_concat', 'conv4_block24_concat', 'conv5_block16_concat']
+            print("DenseNet201 caricato - PIÙ POTENTE per segmentazione")
+            
+        elif self.cnn_model_name == 'resnet101':
+            base_model = ResNet101(
+                weights='imagenet',
+                include_top=False,
+                input_shape=(*self.image_size, 3)
+            )
+            layer_names = ['conv2_block3_out', 'conv3_block4_out', 'conv4_block23_out']
+            print("ResNet101 caricato - PIÙ PROFONDO per segmentazione")
+            
+        elif self.cnn_model_name == 'convnext_tiny':
+            base_model = ConvNeXtTiny(
+                weights='imagenet',
+                include_top=False,
+                input_shape=(*self.image_size, 3)
+            )
+            layer_names = ['convnext_tiny_stage_1_block_2_identity', 'convnext_tiny_stage_2_block_8_identity', 'convnext_tiny_stage_3_block_2_identity']
+            print("ConvNeXtTiny caricato - MODERNO e performante per segmentazione")
+            
+        elif self.cnn_model_name == 'convnext_small':
+            base_model = ConvNeXtSmall(
+                weights='imagenet',
+                include_top=False,
+                input_shape=(*self.image_size, 3)
+            )
+            layer_names = ['stage2_block1', 'stage3_block1', 'stage4_block1']
+            print("ConvNeXtSmall caricato - MODERNO e performante per segmentazione")
+            
+        elif self.cnn_model_name == 'densenet201':
+            base_model = DenseNet201(
+                weights='imagenet',
+                include_top=False,
+                input_shape=(*self.image_size, 3)
+            )
+            layer_names = ['conv3_block12_concat', 'conv4_block24_concat', 'conv5_block16_concat']
+            print("DenseNet201 caricato - POTENTE per segmentazione")
+            
+        elif self.cnn_model_name == 'efficientnetv2_b0':
+            base_model = EfficientNetV2B0(
+                weights='imagenet',
+                include_top=False,
+                input_shape=(*self.image_size, 3)
+            )
+            layer_names = ['block4a_expand_activation', 'block5a_expand_activation', 'block6a_expand_activation']
+            print("EfficientNetV2B0 caricato - VERSIONE MIGLIORATA di EfficientNet")
+            
+        elif self.cnn_model_name == 'efficientnetv2_b1':
+            base_model = EfficientNetV2B1(
+                weights='imagenet',
+                include_top=False,
+                input_shape=(*self.image_size, 3)
+            )
+            layer_names = ['block4a_expand_activation', 'block5a_expand_activation', 'block6a_expand_activation']
+            print("EfficientNetV2B1 caricato - VERSIONE MIGLIORATA di EfficientNet")
             
         else:
             raise ValueError(f"Modello CNN non supportato: {self.cnn_model_name}")
@@ -305,9 +394,9 @@ class ImprovedCNNSegmentationClassifier:
             
             # Estrai features
             if self.cnn_model_name == 'efficientnet_b0':
-                block4 = self.encoder_model(batch_X)
-                # Per EfficientNetB0 usiamo solo il layer finale
-                fused_features = block4
+                upsampled_features = self.encoder_model(batch_X)
+                # Per EfficientNetB0 usiamo le features upsampled
+                fused_features = upsampled_features
                 
             elif self.cnn_model_name == 'resnet50':
                 # Ora riceviamo 3 tensori, li ridimensioniamo e li combiniamo
@@ -321,6 +410,41 @@ class ImprovedCNNSegmentationClassifier:
                 block2_upsampled = tf.image.resize(block2, size=block1.shape[1:3])
                 block3_upsampled = tf.image.resize(block3, size=block1.shape[1:3])
                 fused_features = Concatenate()([block1, block2_upsampled, block3_upsampled])
+                
+            elif self.cnn_model_name == 'densenet121':
+                # DenseNet121 - 3 layer per massime prestazioni
+                conv3, conv4, conv5 = self.encoder_model(batch_X)
+                conv4_upsampled = tf.image.resize(conv4, size=conv3.shape[1:3])
+                conv5_upsampled = tf.image.resize(conv5, size=conv3.shape[1:3])
+                fused_features = Concatenate()([conv3, conv4_upsampled, conv5_upsampled])
+                
+            elif self.cnn_model_name == 'convnext_tiny':
+                # ConvNeXt - 3 layer per massime prestazioni
+                stage2, stage3, stage4 = self.encoder_model(batch_X)
+                stage3_upsampled = tf.image.resize(stage3, size=stage2.shape[1:3])
+                stage4_upsampled = tf.image.resize(stage4, size=stage2.shape[1:3])
+                fused_features = Concatenate()([stage2, stage3_upsampled, stage4_upsampled])
+                
+            elif self.cnn_model_name == 'convnext_small':
+                # ConvNeXt Small - 3 layer per massime prestazioni
+                stage2, stage3, stage4 = self.encoder_model(batch_X)
+                stage3_upsampled = tf.image.resize(stage3, size=stage2.shape[1:3])
+                stage4_upsampled = tf.image.resize(stage4, size=stage2.shape[1:3])
+                fused_features = Concatenate()([stage2, stage3_upsampled, stage4_upsampled])
+                
+            elif self.cnn_model_name == 'densenet201':
+                # DenseNet201 - 3 layer per massime prestazioni
+                conv3, conv4, conv5 = self.encoder_model(batch_X)
+                conv4_upsampled = tf.image.resize(conv4, size=conv3.shape[1:3])
+                conv5_upsampled = tf.image.resize(conv5, size=conv3.shape[1:3])
+                fused_features = Concatenate()([conv3, conv4_upsampled, conv5_upsampled])
+                
+            elif self.cnn_model_name in ['efficientnetv2_b0', 'efficientnetv2_b1']:
+                # EfficientNetV2 - 3 layer per massime prestazioni
+                block4, block5, block6 = self.encoder_model(batch_X)
+                block5_upsampled = tf.image.resize(block5, size=block4.shape[1:3])
+                block6_upsampled = tf.image.resize(block6, size=block4.shape[1:3])
+                fused_features = Concatenate()([block4, block5_upsampled, block6_upsampled])
             
             # 1. Ottieni la dimensione della mappa di feature (es. (B, 64, 64, C))
             feature_map_size_hw = fused_features.shape[1:3] # (H, W) es. (64, 64)
@@ -465,10 +589,9 @@ class ImprovedCNNSegmentationClassifier:
         
         # Estrai features
         if self.cnn_model_name == 'efficientnet_b0':
-            block2, block3, block4 = self.encoder_model(img)
-            block3_upsampled = tf.image.resize(block3, size=block2.shape[1:3])
-            block4_upsampled = tf.image.resize(block4, size=block2.shape[1:3])
-            fused_features = Concatenate()([block2, block3_upsampled, block4_upsampled])
+            upsampled_features = self.encoder_model(img)
+            # Per EfficientNetB0 usiamo le features upsampled
+            fused_features = upsampled_features
             
         elif self.cnn_model_name == 'resnet50':
             # Applichiamo la stessa logica a 3 tensori del training
@@ -482,6 +605,36 @@ class ImprovedCNNSegmentationClassifier:
             block2_upsampled = tf.image.resize(block2, size=block1.shape[1:3])
             block3_upsampled = tf.image.resize(block3, size=block1.shape[1:3])
             fused_features = Concatenate()([block1, block2_upsampled, block3_upsampled])
+            
+        elif self.cnn_model_name == 'densenet121':
+            conv3, conv4, conv5 = self.encoder_model(img)
+            conv4_upsampled = tf.image.resize(conv4, size=conv3.shape[1:3])
+            conv5_upsampled = tf.image.resize(conv5, size=conv3.shape[1:3])
+            fused_features = Concatenate()([conv3, conv4_upsampled, conv5_upsampled])
+            
+        elif self.cnn_model_name == 'convnext_tiny':
+            stage2, stage3, stage4 = self.encoder_model(img)
+            stage3_upsampled = tf.image.resize(stage3, size=stage2.shape[1:3])
+            stage4_upsampled = tf.image.resize(stage4, size=stage2.shape[1:3])
+            fused_features = Concatenate()([stage2, stage3_upsampled, stage4_upsampled])
+            
+        elif self.cnn_model_name == 'convnext_small':
+            stage2, stage3, stage4 = self.encoder_model(img)
+            stage3_upsampled = tf.image.resize(stage3, size=stage2.shape[1:3])
+            stage4_upsampled = tf.image.resize(stage4, size=stage2.shape[1:3])
+            fused_features = Concatenate()([stage2, stage3_upsampled, stage4_upsampled])
+            
+        elif self.cnn_model_name == 'densenet201':
+            conv3, conv4, conv5 = self.encoder_model(img)
+            conv4_upsampled = tf.image.resize(conv4, size=conv3.shape[1:3])
+            conv5_upsampled = tf.image.resize(conv5, size=conv3.shape[1:3])
+            fused_features = Concatenate()([conv3, conv4_upsampled, conv5_upsampled])
+            
+        elif self.cnn_model_name in ['efficientnetv2_b0', 'efficientnetv2_b1']:
+            block4, block5, block6 = self.encoder_model(img)
+            block5_upsampled = tf.image.resize(block5, size=block4.shape[1:3])
+            block6_upsampled = tf.image.resize(block6, size=block4.shape[1:3])
+            fused_features = Concatenate()([block4, block5_upsampled, block6_upsampled])
         
         # Riorganizza per la predizione
         features_reshaped = fused_features.numpy().reshape(-1, fused_features.shape[3])
@@ -492,59 +645,49 @@ class ImprovedCNNSegmentationClassifier:
 
         return pred_image
     
-    def apply_crf_refinement(self, image, predicted_mask):
+    def apply_morphological_refinement(self, predicted_mask):
         """
-        Applica Conditional Random Fields per raffinare la segmentazione.
-        Basato sul notebook del professore.
+        Applica operazioni morfologiche per raffinare la segmentazione.
+        Alternativa moderna e stabile a pydensecrf.
         """
         try:
-            # Assicurati che l'immagine sia nel formato corretto
-            if image.dtype != np.uint8:
-                image = (image * 255).astype(np.uint8)
+            from scipy import ndimage
+            from skimage.morphology import opening, closing, remove_small_objects
             
-            # Numero di classi (escludendo la classe 0)
-            n_labels = self.num_classes
+            # Converti in uint8 se necessario
+            mask = predicted_mask.astype(np.uint8)
             
-            # Crea il modello CRF denso
-            d = dcrf.DenseCRF2D(image.shape[1], image.shape[0], n_labels)
+            # 1. Rimuovi oggetti piccoli (rumore)
+            mask_cleaned = remove_small_objects(mask, min_size=50)
             
-            # Definisci il potenziale unario basato sulle etichette previste
-            unary = unary_from_labels(predicted_mask, n_labels, gt_prob=0.8, zero_unsure=False)
-            d.setUnaryEnergy(unary)
+            # 2. Operazioni morfologiche per smoothing
+            # Opening (erosione seguita da dilatazione) - rimuove piccoli oggetti
+            mask_opened = opening(mask_cleaned, footprint=np.ones((3, 3)))
             
-            # Crea un kernel gaussiano per lo smoothing spatial
-            feats = create_pairwise_gaussian(sdims=(3, 3), shape=image.shape[:2])
-            d.addPairwiseEnergy(feats, compat=5)
+            # Closing (dilatazione seguita da erosione) - riempie buchi
+            mask_closed = closing(mask_opened, footprint=np.ones((3, 3)))
             
-            # Crea un kernel bilaterale (smoothing spatial + colore)
-            feats = create_pairwise_bilateral(sdims=(5, 5), schan=(15, 15, 15), img=image, chdim=2)
-            d.addPairwiseEnergy(feats, compat=8)
+            # 3. Smoothing con filtro gaussiano
+            mask_smoothed = ndimage.gaussian_filter(mask_closed.astype(float), sigma=0.5)
+            mask_smoothed = np.round(mask_smoothed).astype(np.uint8)
             
-            # Inferenzia
-            Q = d.inference(10)  # Numero di iterazioni
-            refined_mask = np.argmax(Q, axis=0).reshape((image.shape[0], image.shape[1]))
-            
-            return refined_mask
+            return mask_smoothed
             
         except Exception as e:
-            print(f"Errore durante CRF refinement: {e}")
+            print(f"Errore durante morphological refinement: {e}")
             print("Ritorno la maschera originale senza raffinamento.")
             return predicted_mask
     
-    def predict_image_with_crf(self, image_path):
+    def predict_image_with_refinement(self, image_path):
         """
-        Predice la segmentazione con CRF refinement finale.
+        Predice la segmentazione con morphological refinement finale.
+        Alternativa moderna e stabile a CRF.
         """
         # Predizione base
         predicted_mask = self.predict_image(image_path)
         
-        # Carica l'immagine originale per il CRF
-        original_img = cv2.imread(image_path, cv2.IMREAD_COLOR)
-        original_img = cv2.cvtColor(original_img, cv2.COLOR_BGR2RGB)
-        original_img = cv2.resize(original_img, self.image_size)
-        
-        # Applica CRF refinement
-        refined_mask = self.apply_crf_refinement(original_img, predicted_mask)
+        # Applica morphological refinement
+        refined_mask = self.apply_morphological_refinement(predicted_mask)
         
         return refined_mask
     
@@ -660,9 +803,21 @@ class ImprovedCNNSegmentationClassifier:
             
             return accuracy
         
-        # Esegui ottimizzazione
+        # Esegui ottimizzazione con logging
         study = optuna.create_study(direction='maximize')
-        study.optimize(objective, n_trials=n_trials)
+        
+        # Callback per logging del progresso
+        def progress_callback(study, trial):
+            print(f"Trial {trial.number + 1}/{n_trials} completato")
+            if trial.value is not None:
+                print(f"  Accuracy: {trial.value:.4f}")
+                print(f"  Parametri: {trial.params}")
+            else:
+                print(f"  Trial fallito: {trial.state}")
+            print("-" * 50)
+        
+        # Esegui ottimizzazione con callback
+        study.optimize(objective, n_trials=n_trials, callbacks=[progress_callback])
         
         self.best_params = study.best_params
         print(f"Migliori parametri trovati: {self.best_params}")
@@ -743,8 +898,12 @@ class ImprovedCNNSegmentationClassifier:
     def save_model_complete(self, model_path):
         """Salva il modello completo con tutti i componenti necessari."""
         
-        if self.classifier is None:
+        if self.classifier is None or self.encoder_model is None:
             raise ValueError("Nessun modello da salvare.")
+        
+        # Salva l'encoder TensorFlow separatamente
+        encoder_path = model_path.replace('.pkl', '_encoder.keras')
+        self.encoder_model.save(encoder_path)
         
         model_data = {
             'classifier': self.classifier,
@@ -753,7 +912,7 @@ class ImprovedCNNSegmentationClassifier:
             'num_classes': self.num_classes,
             'best_params': getattr(self, 'best_params', None),
             'class_weights': self.class_weights,
-            'encoder_model': None,  # Non salviamo il modello TensorFlow per semplicità
+            'encoder_path': encoder_path,  # Percorso al modello TensorFlow
             'X_test': getattr(self, 'X_test', None),
             'y_test': getattr(self, 'y_test', None)
         }
@@ -762,6 +921,7 @@ class ImprovedCNNSegmentationClassifier:
             pickle.dump(model_data, f)
         
         print(f"Modello completo salvato in: {model_path}")
+        print(f"Encoder TensorFlow salvato in: {encoder_path}")
         
     def load_model_complete(self, model_path):
         """Carica il modello completo."""
@@ -778,8 +938,14 @@ class ImprovedCNNSegmentationClassifier:
         self.X_test = model_data.get('X_test', None)
         self.y_test = model_data.get('y_test', None)
         
-        # Ricrea l'encoder
-        self._create_encoder()
+        # Carica l'encoder TensorFlow salvato
+        encoder_path = model_data.get('encoder_path')
+        if encoder_path and os.path.exists(encoder_path):
+            self.encoder_model = tf.keras.models.load_model(encoder_path)
+            print(f"Encoder TensorFlow caricato da: {encoder_path}")
+        else:
+            print("Encoder non trovato, ricreo da zero...")
+            self._create_encoder()
         
         print(f"Modello completo caricato da: {model_path}")
 
