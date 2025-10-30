@@ -139,4 +139,3 @@ Learning rate ridotto (2.5e-5 → 1.25e-05)
 - **95.36%** per classificazione a 3 classi è **ECCELLENTE**
 - Comparabile con state-of-the-art per task simili
 - Top-2 accuracy 99.64% indica robustezza
-

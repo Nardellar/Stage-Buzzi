@@ -111,8 +111,6 @@ loader = DataLoader(
 Classificazione/ViT/
 ├── train_model_pytorch.py       # Training script
 ├── evaluate_model_pytorch.py    # Evaluation script
-├── train_model.py               # Old TensorFlow version (backup)
-├── evaluate_model.py            # Old TensorFlow version (backup)
 ├── training_results_*/          # Training outputs
 │   ├── best_model_*.pth         # Saved model
 │   └── artifacts.json           # Metadata
@@ -120,23 +118,7 @@ Classificazione/ViT/
 │   ├── classification_report_*.json
 │   ├── confusion_matrix_*.png
 │   └── attention_maps_*.png
-└── validation_test_set/         # Test dataset (HuggingFace format)
 ```
-
-## 🐛 Troubleshooting
-
-### Windows Multiprocessing Error
-Se vedi errori di pickle su Windows:
-- ✅ Già risolto: `num_workers=0` nei DataLoader
-
-### CUDA Out of Memory
-Se la GPU ha poca memoria:
-- Riduci `batch_size` in `train_model_pytorch.py`
-
-### Inconsistent Results
-Se training e evaluation danno risultati diversi:
-- ✅ Già risolto: preprocessing identico in entrambi gli script
-
 ## 📊 Output del Training
 
 Il modello salvato contiene:
@@ -157,17 +139,10 @@ L'evaluation produce:
 2. **Confusion Matrix** (PNG) - visualizzazione matrice di confusione
 3. **Attention Maps** (PNG) - visualizzazione delle attention maps
 
-## 🔄 Migration from TensorFlow
-
-Se stai migrando dalla versione TensorFlow:
-
-1. ✅ Il dataset è **compatibile** - usa lo stesso formato HuggingFace
-2. ✅ Gli artifacts sono **simili** - solo formato diverso (.pth vs .npz)
-3. ✅ I risultati dovrebbero essere **migliori** - nessun problema di serializzazione
-
 ## 📚 References
 
 - [HuggingFace Transformers](https://huggingface.co/docs/transformers)
 - [Vision Transformer Paper](https://arxiv.org/abs/2010.11929)
 - [HuggingFace Preprocessing Guide](https://huggingface.co/docs/transformers/preprocessing)
+
 

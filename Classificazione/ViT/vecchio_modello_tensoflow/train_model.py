@@ -1,5 +1,5 @@
 """
-Script per l'addestramento del modello ViT Migliorato.
+Script per l'addestramento del modello ViT Migliorato (il vecchio vit_from_hf_attribute_improved.py).
 - Divide il dataset in Train (80%) e Validation (20%).
 - Salva il validation set su file per essere usato come test set separato.
 - Esegue il training e salva i pesi del modello migliore e gli artefatti.
