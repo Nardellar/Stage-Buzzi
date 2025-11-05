@@ -1,0 +1,15 @@
+# Requirements per la pipeline di segmentazione + classifier boosting
+numpy==2.2.6
+opencv-python==4.12.0.88
+pillow==11.3.0
+albumentations==1.4.21
+tensorflow==2.20.0
+keras==3.11.3
+optuna==4.5.0
+xgboost==3.0.5
+lightgbm==4.5.0
+matplotlib==3.10.6
+seaborn==0.13.2
+scikit-learn==1.5.2
+tqdm==4.67.1
+pydensecrf2==1.0  # opzionale, necessario solo se si vuole abilitare il raffinamento CRF

@@ -123,17 +123,24 @@ def prepare_and_split_dataset(attribute: str, batch_size: int):
         # ✅ CORREZIONE: Usa SEMPRE Image.open() per coerenza totale
         # Converti oggetti PIL in percorsi temporanei, poi ricarica con Image.open()
         images_loaded = []
+        def crop(image):
+            width, height = image.size
+            crop_height = min(950, height)
+            if crop_height == height:
+                return image
+            return image.crop((0, 0, width, crop_height))
+
         for img in batch["image"]:
             if hasattr(img, 'filename') and img.filename:
-                # Se l'immagine ha un filename, usa quello
-                images_loaded.append(Image.open(img.filename))
+                loaded = Image.open(img.filename)
             else:
-                # Se non ha filename, salva temporaneamente e ricarica
                 import tempfile
                 with tempfile.NamedTemporaryFile(suffix='.jpg', delete=False) as tmp:
                     img.save(tmp.name)
-                    images_loaded.append(Image.open(tmp.name))
-        
+                    loaded = Image.open(tmp.name)
+            cropped = crop(loaded).convert("RGB")
+            images_loaded.append(cropped)
+
         processed = processor(images=images_loaded, return_tensors="tf")
         batch["pixel_values"] = tf.convert_to_tensor(processed["pixel_values"])
         batch["labels"] = tf.convert_to_tensor(batch["attribute"], dtype=tf.int32)

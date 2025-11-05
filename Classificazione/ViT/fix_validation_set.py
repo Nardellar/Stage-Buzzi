@@ -3,6 +3,7 @@ Script per rigenerare SOLO il validation_test_set senza training.
 Usa la stessa logica del training ma si ferma dopo aver salvato il dataset.
 """
 import sys
+import argparse
 from pathlib import Path
 import pandas as pd
 from datasets import load_dataset, ClassLabel
@@ -10,13 +11,12 @@ from datasets import load_dataset, ClassLabel
 sys.path.append(str(Path(__file__).resolve().parents[2]))
 from common import csv_config
 
-def regenerate_validation_set_only():
+def regenerate_validation_set_only(attribute: str):
     """Rigenera solo il validation set, senza training."""
     print("=" * 60)
     print("RIGENERAZIONE VALIDATION SET (senza training)")
     print("=" * 60)
     
-    attribute = "temperatura"
     print(f"\nAttributo: {attribute}")
     
     # Stessa logica del training
@@ -26,7 +26,10 @@ def regenerate_validation_set_only():
         csv_config.create_csv(csv_path)
     df = pd.read_csv(csv_path)
     
-    unique_attributes = sorted([str(attr) for attr in df[attribute].unique()])
+    if attribute not in df.columns:
+        raise ValueError(f"L'attributo '{attribute}' non esiste nel CSV. Colonne disponibili: {list(df.columns)}")
+
+    unique_attributes = sorted([str(attr) for attr in df[attribute].dropna().unique()])
     label2id = {label: i for i, label in enumerate(unique_attributes)}
     attr_map = {k: str(v) for k, v in df.set_index("ID")[attribute].to_dict().items()}
     
@@ -65,5 +68,17 @@ def regenerate_validation_set_only():
     print("=" * 60)
 
 if __name__ == "__main__":
-    regenerate_validation_set_only()
+    parser = argparse.ArgumentParser(description="Rigenera il validation set per un attributo specifico.")
+    parser.add_argument(
+        "attribute",
+        nargs="?",
+        help="Nome dell'attributo da usare (es. 'temperatura'). Se omesso viene richiesto da input.",
+    )
+    args = parser.parse_args()
+
+    attribute = args.attribute
+    if not attribute:
+        attribute = input("Inserisci l'attributo da utilizzare (default: temperatura): ").strip() or "temperatura"
+
+    regenerate_validation_set_only(attribute)
 

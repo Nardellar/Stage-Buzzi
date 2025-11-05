@@ -71,14 +71,6 @@ class GPUOptimizedCNNSegmentationClassifier:
 
     def __init__(self, config: Optional[GPUClassifierConfig] = None):
         self.config = config or GPUClassifierConfig()
-        # Gestisci modelli salvati con config precedenti
-        if not hasattr(self.config, "decoder_filters"):
-            self.config.decoder_filters = 128
-        if not hasattr(self.config, "feature_map_size"):
-            self.config.feature_map_size = 64
-        if not hasattr(self.config, "max_pixels_per_image"):
-            self.config.max_pixels_per_image = 16384
-
         self.images_dir = self.config.images_dir
         self.masks_dir = self.config.masks_dir
 
@@ -595,10 +587,4 @@ class GPUOptimizedCNNSegmentationClassifier:
         self.best_params = payload.get("best_params")
         self.class_weights = payload.get("class_weights")
         self.config = payload.get("config", self.config)
-        if not hasattr(self.config, "decoder_filters"):
-            self.config.decoder_filters = 128
-        if not hasattr(self.config, "feature_map_size"):
-            self.config.feature_map_size = 64
-        if not hasattr(self.config, "max_pixels_per_image"):
-            self.config.max_pixels_per_image = 16384
         self.best_num_boost_round = payload.get("best_num_boost_round", self.best_num_boost_round)

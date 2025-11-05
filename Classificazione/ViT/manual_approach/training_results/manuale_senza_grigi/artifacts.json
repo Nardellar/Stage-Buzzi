@@ -1,0 +1,11 @@
+{
+    "attribute": "temperatura",
+    "id2label": {
+        "0": "1300",
+        "1": "1400",
+        "2": "1500"
+    },
+    "model_path": "training_results_temperatura\\manuale_senza_grigi\\best_model_temperatura_20251102_013356.pth",
+    "num_classes": 3,
+    "use_grayscale": false
+}

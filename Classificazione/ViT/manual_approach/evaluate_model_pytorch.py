@@ -6,20 +6,59 @@ Script per la valutazione del modello ViT con PyTorch.
 """
 import json
 from pathlib import Path
+import sys
+
 import numpy as np
+import pandas as pd
 import torch
 from torch.utils.data import DataLoader
-from datasets import load_dataset
+from datasets import load_dataset, ClassLabel
 from transformers import AutoImageProcessor, default_data_collator
 from sklearn.metrics import classification_report, confusion_matrix
 import matplotlib.pyplot as plt
 import seaborn as sns
 from tqdm import tqdm
+from PIL import Image
 
-from train_model_pytorch import ViTForCustomClassification
+sys.path.append(str(Path(__file__).resolve().parents[2]))
+from common import csv_config  # noqa: E402
+
+sys.path.append(str(Path(__file__).resolve().parent))
+from manual_train_model_pytorch import ViTForCustomClassification
 
 
-def load_test_data(batch_size: int):
+def regenerate_validation_split(attribute: str):
+    root_dir = Path(__file__).resolve().parents[2]
+    csv_path = root_dir / "esperimenti.csv"
+    if not csv_path.exists():
+        csv_config.create_csv(csv_path)
+    df = pd.read_csv(csv_path)
+
+    if attribute not in df.columns:
+        raise ValueError(f"Attributo '{attribute}' non presente nel CSV.")
+
+    unique_attributes = sorted(df[attribute].dropna().astype(str).unique())
+    label2id = {label: idx for idx, label in enumerate(unique_attributes)}
+
+    dataset = load_dataset("Nardellar/Esperimenti", split="train")
+
+    attr_map = df.set_index("ID")[attribute].dropna().astype(str).to_dict()
+
+    def add_attribute(example):
+        class_name = dataset.features["label"].int2str(example["label"])
+        example["attribute"] = label2id.get(attr_map.get(class_name, None), -1)
+        return example
+
+    dataset = dataset.map(add_attribute).filter(lambda ex: ex["attribute"] != -1)
+    dataset = dataset.cast_column("attribute", ClassLabel(names=unique_attributes))
+
+    split = dataset.train_test_split(test_size=0.2, seed=42, stratify_by_column="attribute")
+    val_ds = split["test"]
+    val_ds.save_to_disk("validation_test_set")
+    print("Validation split rigenerato e salvato in 'validation_test_set/'.")
+
+
+def load_test_data(batch_size: int, use_grayscale: bool):
     """Carica il test dataset."""
     try:
         # Prova prima con load_from_disk (formato HuggingFace standard)
@@ -42,17 +81,26 @@ def load_test_data(batch_size: int):
     processor = AutoImageProcessor.from_pretrained("google/vit-base-patch16-224")
 
     def transform(examples):
+        def crop(image):
+            width, height = image.size
+            crop_height = min(950, height)
+            if crop_height == height:
+                return image
+            return image.crop((0, 0, width, crop_height))
+
+        def maybe_grayscale(image):
+            if not use_grayscale:
+                return image.convert("RGB")
+            gray = image.convert("L")
+            return Image.merge("RGB", (gray, gray, gray))
+
         """
         Trasformazione applicata on-the-fly dal dataset HuggingFace.
         DEVE essere IDENTICA a quella del training per risultati consistenti.
         """
-        # Converti tutte le immagini in RGB (gestisce anche immagini in scala di grigi)
-        images = [img.convert("RGB") for img in examples["image"]]
-        
-        # Preprocessa con l'AutoImageProcessor (fa resize, normalizzazione, ecc.)
+        images = [maybe_grayscale(crop(img)) for img in examples["image"]]
+
         inputs = processor(images, return_tensors="pt")
-        
-        # Aggiungi le labels
         inputs["labels"] = examples["attribute"]
         return inputs
 
@@ -217,7 +265,7 @@ def main():
         print(f"  [{i}] - {d.name}")
 
     choice = int(input("Inserisci il numero: ").strip())
-    training_dir = training_dirs[choice]
+    training_dir = Path("training_results_temperatura/manuale_senza_grigi") #training_dirs[choice]
     
     # Carica artifacts
     artifacts_path = training_dir / "artifacts.json"
@@ -242,7 +290,10 @@ def main():
     print("Modello caricato con successo!")
 
     # Carica test data
-    test_loader = load_test_data(batch_size=16)
+    use_grayscale = artifacts.get('use_grayscale', False)
+    print(f"Uso scala di grigi (dati di valutazione): {use_grayscale}")
+    regenerate_validation_split(attribute)
+    test_loader = load_test_data(batch_size=16, use_grayscale=use_grayscale)
     if test_loader is None:
         return
 
@@ -263,4 +314,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
