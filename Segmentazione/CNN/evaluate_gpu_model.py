@@ -49,6 +49,8 @@ MAX_IMAGES = None
 # Imposta una dimensione fissa (H, W) se vuoi forzare il resize durante la valutazione;
 # lascia None per usare la risoluzione originale delle immagini nel dataset.
 IMAGE_SIZE_OVERRIDE: Optional[tuple[int, int]] = None
+# Se True ricostruisce il feature extractor per ogni immagine per lavorare alla risoluzione originale.
+USE_NATIVE_RESOLUTION = True
 CLASS_NAMES = ["Resina", "Pori/Imperfezioni", "Fase Fusa", "Belite", "Alite"]
 
 
@@ -121,14 +123,16 @@ def evaluate_gpu_model(
     model_path: Path,
     dataset: Dict[str, np.ndarray],
     image_size: Optional[tuple[int, int]] = None,
+    use_native_resolution: bool = False,
 ) -> Dict:
     from gpu_optimized_cnn_classifier import GPUOptimizedCNNSegmentationClassifier
 
     model = GPUOptimizedCNNSegmentationClassifier()
     model.load(str(model_path))
 
-    expected_size = image_size or tuple(model.config.image_size)
-    width_expected, height_expected = expected_size[1], expected_size[0]
+    expected_size = None if use_native_resolution else (image_size or tuple(model.config.image_size))
+    if expected_size is not None:
+        width_expected, height_expected = expected_size[1], expected_size[0]
 
     predictions = []
     ground_truth = []
@@ -138,10 +142,16 @@ def evaluate_gpu_model(
         zip(dataset["images"], dataset["masks"], dataset["image_paths"]), start=1
     ):
         print(f"[GPU] Processando immagine {idx}/{len(dataset['images'])}...")
-        img_resized = cv2.resize(
-            img, (width_expected, height_expected), interpolation=cv2.INTER_LINEAR
-        ).astype(np.float32)
-        features = model._feature_extractor.predict(np.expand_dims(img_resized, axis=0), verbose=0)
+        if expected_size is not None:
+            img_prepared = cv2.resize(
+                img, (width_expected, height_expected), interpolation=cv2.INTER_LINEAR
+            ).astype(np.float32)
+        else:
+            native_size = (img.shape[0], img.shape[1])
+            model.ensure_feature_extractor_size(native_size)
+            img_prepared = img.astype(np.float32)
+
+        features = model._feature_extractor.predict(np.expand_dims(img_prepared, axis=0), verbose=0)
         h_f, w_f = features.shape[1:3]
 
         feat_flat = features.reshape(-1, features.shape[-1])
@@ -252,7 +262,12 @@ def main():
     print("=" * 50)
 
     dataset = load_dataset(IMAGES_DIR, MASKS_DIR, MAX_IMAGES)
-    results = evaluate_gpu_model(model_path, dataset, IMAGE_SIZE_OVERRIDE)
+    results = evaluate_gpu_model(
+        model_path,
+        dataset,
+        IMAGE_SIZE_OVERRIDE,
+        use_native_resolution=USE_NATIVE_RESOLUTION,
+    )
 
     accuracy = results["accuracy"]
     print(f"\nAccuracy pixel (post-CRF): {accuracy:.4f}")

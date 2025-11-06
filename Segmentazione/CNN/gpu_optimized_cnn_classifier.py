@@ -48,15 +48,15 @@ class XGBBoosterWrapper:
 
 @dataclass
 class GPUClassifierConfig:
-    cnn_model: str = "mobilenet_v2"
+    cnn_model: str = "convnext_tiny"
     classifier: str = "xgboost"  # "xgboost" o "lightgbm"
     images_dir: str = "../images/Immagini"
     masks_dir: str = "../images/Maschere"
-    image_size: Tuple[int, int] = (512, 512)
-    feature_map_size: int = 64  # Risoluzione target della feature map
-    batch_size: int = 4
+    image_size: Tuple[int, int] = (1024, 1024)
+    feature_map_size: Optional[Tuple[int, int] | int] = None  # None => usa la risoluzione dell'immagine
+    batch_size: int = 2
     use_augmentation: bool = True
-    max_pixels_per_image: int = 16384  # Limita il numero di sample per immagine
+    max_pixels_per_image: int = 20000  # Limita il numero di sample per immagine
     use_gpu: bool = True
     num_classes: int = 5
     decoder_filters: int = 128
@@ -90,6 +90,8 @@ class GPUOptimizedCNNSegmentationClassifier:
 
         self.X_features: Optional[np.ndarray] = None
         self.y_labels: Optional[np.ndarray] = None
+        self._feature_extractor_weights: Optional[list[np.ndarray]] = None
+        self.current_image_size: Tuple[int, int] = tuple(self.config.image_size)
 
     # ------------------------------------------------------------------ #
     # Data loading
@@ -185,7 +187,9 @@ class GPUOptimizedCNNSegmentationClassifier:
     def extract_features(self):
         """Estrae feature spaziali ridotte dalla CNN."""
         if self._feature_extractor is None:
-            self._build_feature_extractor()
+            self._feature_extractor = self._build_feature_extractor()
+            self._feature_extractor_weights = self._feature_extractor.get_weights()
+            self.current_image_size = tuple(self.config.image_size)
 
         features = []
         labels = []
@@ -236,20 +240,36 @@ class GPUOptimizedCNNSegmentationClassifier:
         self.X_features = np.vstack(features)
         self.y_labels = np.hstack(labels)
 
-    def _build_feature_extractor(self):
+    def ensure_feature_extractor_size(self, image_size: Tuple[int, int]) -> None:
+        """
+        Ricostruisce il feature extractor per gestire immagini di dimensioni diverse.
+        Mantiene i pesi addestrati, ma aggiorna l'input/output spatial size.
+        """
+        target_size = (int(image_size[0]), int(image_size[1]))
+        if self._feature_extractor is None:
+            raise RuntimeError("Feature extractor non inizializzato: carica o addestra il modello prima.")
+
+        if tuple(self.current_image_size) == target_size:
+            return
+
+        if self._feature_extractor_weights is None:
+            self._feature_extractor_weights = self._feature_extractor.get_weights()
+
+        rebuilt = self._build_feature_extractor(override_image_size=target_size)
+        rebuilt.set_weights(self._feature_extractor_weights)
+        self._feature_extractor = rebuilt
+        self.current_image_size = target_size
+        self._feature_extractor_weights = self._feature_extractor.get_weights()
+
+    def _build_feature_extractor(
+        self, override_image_size: Optional[Tuple[int, int]] = None
+    ) -> tf.keras.Model:
         """Crea la CNN di base e restituisce feature map ridimensionata."""
-        input_shape = (*self.config.image_size, 3)
+        image_size = override_image_size or self.config.image_size
+        input_shape = (*image_size, 3)
         model_name = self.config.cnn_model.lower()
 
-        if model_name == "mobilenet_v2":
-            base = tf.keras.applications.MobileNetV2(
-                weights="imagenet", include_top=False, input_shape=input_shape
-            )
-        elif model_name == "efficientnet_b0":
-            base = tf.keras.applications.EfficientNetB0(
-                weights="imagenet", include_top=False, input_shape=input_shape
-            )
-        elif model_name == "resnet50":
+        if model_name == "resnet50":
             base = tf.keras.applications.ResNet50(
                 weights="imagenet", include_top=False, input_shape=input_shape
             )
@@ -258,24 +278,42 @@ class GPUOptimizedCNNSegmentationClassifier:
                 weights="imagenet", include_top=False, input_shape=input_shape
             )
         else:
-            raise ValueError(f"Modello CNN non supportato: {self.config.cnn_model}")
+            raise ValueError(
+                f"Modello CNN non supportato: {self.config.cnn_model}. "
+                "Usa 'resnet50' o 'convnext_tiny'."
+            )
 
         for layer in base.layers:
             layer.trainable = False
 
-        target = self.config.feature_map_size
+        # Determina la dimensione target della feature map finale.
+        target_config = self.config.feature_map_size
+        if target_config is None:
+            target_h, target_w = image_size
+        elif isinstance(target_config, int):
+            target_h = target_w = int(target_config)
+        else:
+            target_h, target_w = target_config
+
         decoder_filters = self.config.decoder_filters
 
         x = base.output
-        current_size = x.shape[1]
+        current_h = x.shape[1]
+        current_w = x.shape[2]
 
         # Se la dimensione è indefinita (None) lasciamo che la Resizing finale gestisca il target.
-        while current_size is not None and current_size < target:
+        while (
+            (current_h is not None and current_h < target_h)
+            or (current_w is not None and current_w < target_w)
+        ):
             x = tf.keras.layers.Conv2D(
                 decoder_filters, kernel_size=3, padding="same", activation="relu"
             )(x)
             x = tf.keras.layers.UpSampling2D(size=(2, 2), interpolation="bilinear")(x)
-            current_size *= 2
+            if current_h is not None:
+                current_h *= 2
+            if current_w is not None:
+                current_w *= 2
 
         x = tf.keras.layers.Conv2D(
             decoder_filters, kernel_size=3, padding="same", activation="relu"
@@ -285,9 +323,12 @@ class GPUOptimizedCNNSegmentationClassifier:
         )(x)
 
         resized = tf.keras.layers.Resizing(
-            target, target, interpolation="bilinear", name="feature_resizer"
+            target_h,
+            target_w,
+            interpolation="bilinear",
+            name="feature_resizer",
         )(x)
-        self._feature_extractor = tf.keras.Model(inputs=base.input, outputs=resized)
+        return tf.keras.Model(inputs=base.input, outputs=resized)
 
     # ------------------------------------------------------------------ #
     # Training
@@ -580,6 +621,7 @@ class GPUOptimizedCNNSegmentationClassifier:
             raise FileNotFoundError("File del modello non trovati.")
 
         self._feature_extractor = tf.keras.models.load_model(feature_path)
+        self._feature_extractor_weights = self._feature_extractor.get_weights()
         with open(classifier_path, "rb") as f:
             payload = pickle.load(f)
 
@@ -588,3 +630,4 @@ class GPUOptimizedCNNSegmentationClassifier:
         self.class_weights = payload.get("class_weights")
         self.config = payload.get("config", self.config)
         self.best_num_boost_round = payload.get("best_num_boost_round", self.best_num_boost_round)
+        self.current_image_size = tuple(self.config.image_size)

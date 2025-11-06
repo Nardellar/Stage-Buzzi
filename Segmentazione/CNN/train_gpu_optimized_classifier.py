@@ -25,20 +25,20 @@ MODEL_OUTPUT_PREFIX = (BASE_DIR / "gpu_optimized_cnn_model").resolve()
 
 # Numero di immagini elaborate in parallelo durante l'estrazione feature.
 # Aumenta se hai più RAM/GPU per ridurre il tempo di estrazione; diminuisci se vedi OOM.
-BATCH_SIZE = 4
-# Risoluzione spaziale finale delle feature estratte (es. 64 -> griglia 64x64).
-# Valori più alti aumentano il dettaglio ma anche costi computazionali e memoria.
-FEATURE_MAP_SIZE = 64
+BATCH_SIZE = 2
+# Risoluzione spaziale finale delle feature estratte.
+# None -> mantiene la risoluzione originale dell'immagine.
+FEATURE_MAP_SIZE = None
 # Numero massimo di pixel campionati per immagine (prevenzione dataset enorme).
 # Aumenta per usare più pixel (migliore stima) ma attenzione alla memoria; None = tutti.
-MAX_PIXELS_PER_IMAGE = 16384
+MAX_PIXELS_PER_IMAGE = 20000
 # Filtri dei blocchi Conv2D del decoder che raffinano la feature-map.
 # Incrementa per decoder più espressivo (ma più lento / pesante).
 DECODER_FILTERS = 128
 # Tipo di classificatore finale (xgboost o lightgbm).
 CLASSIFIER_TYPE = "xgboost"
 # Se True usa versioni GPU dei booster (quando disponibili); metti False su CPU pure.
-USE_GPU = True
+USE_GPU = False
 # Numero di trial Optuna per la ricerca iperparametri.
 # Aumenta per tuning migliore (più tempo); riduci per prove rapide.
 TRIALS = 20
@@ -54,9 +54,9 @@ def parse_args():
     parser.add_argument(
         "--cnn_model",
         type=str,
-        default="mobilenet_v2",
-        choices=["mobilenet_v2", "efficientnet_b0", "resnet50", "convnext_tiny"],
-        help="Backbone CNN da usare (mobilenet_v2 per velocità, convnext_tiny per qualità).",
+        default="convnext_tiny",
+        choices=["resnet50", "convnext_tiny"],
+        help="Backbone CNN da usare (resnet50: classico, convnext_tiny: migliore accuratezza).",
     )
     return parser.parse_args()
 
@@ -70,7 +70,16 @@ def main():
     print(f"Backbone CNN            : {args.cnn_model}")
     print(f"Classificatore boosting  : {CLASSIFIER_TYPE}")
     print(f"Batch size feature       : {BATCH_SIZE}")
-    print(f"Feature map size         : {FEATURE_MAP_SIZE}x{FEATURE_MAP_SIZE}")
+    feature_map_desc = (
+        "uguale all'immagine"
+        if FEATURE_MAP_SIZE in (None, 0)
+        else (
+            f"{FEATURE_MAP_SIZE}x{FEATURE_MAP_SIZE}"
+            if isinstance(FEATURE_MAP_SIZE, int)
+            else f"{FEATURE_MAP_SIZE}"
+        )
+    )
+    print(f"Feature map size         : {feature_map_desc}")
     print(f"Max pixel per immagine   : {MAX_PIXELS_PER_IMAGE}")
     print(f"Decoder filters          : {DECODER_FILTERS}")
     print(f"Numero di trial Optuna   : {TRIALS}")
