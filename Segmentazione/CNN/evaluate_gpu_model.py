@@ -11,9 +11,11 @@ Riproduce le stesse trasformazioni del confronto:
 from __future__ import annotations
 
 import argparse
-import glob
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, Iterable, Optional
+
+from data_module import prepare_dataset_splits, load_dataset_stateless
+from gpu_optimized_cnn_classifier import GPUOptimizedCNNSegmentationClassifier
 
 import cv2
 import matplotlib.pyplot as plt
@@ -22,89 +24,50 @@ from matplotlib import colors
 from PIL import Image
 from sklearn.metrics import accuracy_score, confusion_matrix
 
-try:
-    import pydensecrf.densecrf as dcrf
-    from pydensecrf.utils import (
-        unary_from_labels,
-        create_pairwise_gaussian,
-        create_pairwise_bilateral,
-    )
-
-    CRF_AVAILABLE = True
-except ImportError as exc:
-    CRF_AVAILABLE = False
-    CRF_IMPORT_ERROR = exc
+import pydensecrf.densecrf as dcrf
+from pydensecrf.utils import (
+    unary_from_labels,
+    create_pairwise_gaussian,
+    create_pairwise_bilateral,
+)
 
 # Cartella contenente lo script (usata come riferimento per i path relativi).
 BASE_DIR = Path(__file__).resolve().parent
 # Directory di immagini e maschere da valutare; cambia se il dataset è altrove.
 IMAGES_DIR = (BASE_DIR / "../images/Immagini").resolve()
 MASKS_DIR = (BASE_DIR / "../images/Maschere").resolve()
-# Prefisso dei file salvati dal training (senza estensioni).
+# Prefisso dei file salvati dal training ((cnn e decoder).keras + classificatre.pk1).
 MODEL_PREFIX = "gpu_optimized_cnn_model"
 # Percorso del file PNG con le anteprime (GT vs predizione).
 PREVIEW_PATH = BASE_DIR / "gpu_model_preview.png"
-# Numero massimo di immagini da valutare (None = tutte). Riduci per test rapidi.
-MAX_IMAGES = None
-# Imposta una dimensione fissa (H, W) se vuoi forzare il resize durante la valutazione;
-# lascia None per usare la risoluzione originale delle immagini nel dataset.
-IMAGE_SIZE_OVERRIDE: Optional[tuple[int, int]] = None
-# Se True ricostruisce il feature extractor per ogni immagine per lavorare alla risoluzione originale.
-USE_NATIVE_RESOLUTION = True
+# Percorso dell'immagine con la matrice di confusione salvata.
+CONFUSION_PATH = BASE_DIR / "gpu_confusion_matrix.png"
+#Percorso della cartella contenente gli split del dataset.
+SPLIT_DIR = (BASE_DIR / "splits").resolve()
+#Nomi delle classi da classificare.
 CLASS_NAMES = ["Resina", "Pori/Imperfezioni", "Fase Fusa", "Belite", "Alite"]
 
 
-def load_dataset(images_dir: Path, masks_dir: Path, limit: Optional[int]) -> Dict[str, np.ndarray]:
-    image_paths = sorted(glob.glob(str(images_dir / "*.png")))
-    mask_paths = sorted(glob.glob(str(masks_dir / "*.tif")))
-
-    if not image_paths or not mask_paths:
-        raise FileNotFoundError(
-            f"Nessuna immagine trovata in {images_dir} o nessuna maschera in {masks_dir}"
-        )
-
-    if limit is not None:
-        image_paths = image_paths[:limit]
-        mask_paths = mask_paths[:limit]
-
-    images, masks = [], []
-    for img_path, mask_path in zip(image_paths, mask_paths):
-        img = cv2.imread(img_path)
-        if img is None:
-            continue
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        images.append(img.astype(np.float32) / 255.0)
-
-        mask = Image.open(mask_path)
-        mask = np.array(mask)
-        if mask.ndim == 3:
-            mask = cv2.cvtColor(mask, cv2.COLOR_RGB2GRAY)
-        masks.append(mask.astype(np.int32))
-
-    if not images:
-        raise RuntimeError("Dataset vuoto dopo il caricamento.")
-
-    return {
-        "images": np.asarray(images),
-        "masks": np.asarray(masks),
-        "image_paths": image_paths,
-    }
-
-
 def apply_dense_crf(image: np.ndarray, labels: np.ndarray, num_classes: int) -> np.ndarray:
-    if not CRF_AVAILABLE:
-        raise RuntimeError(
-            "pydensecrf non installato. Esegui `pip install pydensecrf` per abilitare il CRF."
-        ) from CRF_IMPORT_ERROR
-
-    h, w = image.shape[:2]
-    d = dcrf.DenseCRF2D(w, h, num_classes)
+    """
+    Applica il DenseCRF per raffinare le predizioni del modello.
+    Args:
+        image: Immagine in formato uint8 (0-255) con dimensioni (altezza, larghezza, 3)
+        labels: Maschera predetta dal modello in formato int32 (prima del CRF) con dimensioni (altezza, larghezza) e valori (0-4)
+        num_classes: Numero di classi da classificare (5)
+    Returns:
+        Maschera raffinata in formato int32 (0-4)
+    """
+    #salvo altezza e larghezza dell'immagine
+    height, width = image.shape[:2]
+    #creo un oggetto DenseCRF2D con le dimensioni dell'immagine e il numero di classi
+    crf = dcrf.DenseCRF2D(width, height, num_classes)
 
     unary = unary_from_labels(labels.astype(np.int32), num_classes, gt_prob=0.7, zero_unsure=False)
-    d.setUnaryEnergy(unary)
+    crf.setUnaryEnergy(unary)
 
     feats_gaussian = create_pairwise_gaussian(sdims=(3, 3), shape=image.shape[:2])
-    d.addPairwiseEnergy(feats_gaussian, compat=3)
+    crf.addPairwiseEnergy(feats_gaussian, compat=3)
 
     feats_bilateral = create_pairwise_bilateral(
         sdims=(5, 5),
@@ -112,80 +75,101 @@ def apply_dense_crf(image: np.ndarray, labels: np.ndarray, num_classes: int) -> 
         img=image,
         chdim=2,
     )
-    d.addPairwiseEnergy(feats_bilateral, compat=5)
+    crf.addPairwiseEnergy(feats_bilateral, compat=5)
 
-    Q = d.inference(5)
-    refined = np.argmax(Q, axis=0).reshape((h, w))
+    Q = crf.inference(5)
+    refined = np.argmax(Q, axis=0).reshape((height, width))
     return refined
 
 
-def evaluate_gpu_model(
-    model_path: Path,
-    dataset: Dict[str, np.ndarray],
-    image_size: Optional[tuple[int, int]] = None,
-    use_native_resolution: bool = False,
-) -> Dict:
-    from gpu_optimized_cnn_classifier import GPUOptimizedCNNSegmentationClassifier
+def evaluate_gpu_model(model, dataset: Dict[str, np.ndarray],) -> Dict:
+    """
+    Valuta il modello sul set di evaluation.
+    Args:
+        model: Modello CNN-based addestrato.
+        dataset: Dizionario contenente: 
+            - images: array numpy con forma (Num_immagini, altezza, larghezza, 3)
+            - masks: array numpy con forma (Num_immagini, altezza, larghezza)
+            - image_paths: lista dei percorsi delle immagini
+    Returns:
+        Dizionario contenente:
+            - accuracy: accuracy del modello
+            - predictions: array numpy con le predizioni del modello
+            - ground_truth: array numpy con i ground truth
+            - previews: lista di 3 dizionari contenenti ciascuno [immagine, maschera ground truth, maschera predette, path immagine]
+    """
+    #inizalizzo le liste
+    predictions = []      # accumula le predizioni pixel-level (solo pixel validi)
+    ground_truth = []     # accumula le label ground truth (solo pixel validi)
+    previews = []         # accumula fino a 3 anteprime da usare poi per la visualizzazione
 
-    model = GPUOptimizedCNNSegmentationClassifier()
-    model.load(str(model_path))
 
-    expected_size = None if use_native_resolution else (image_size or tuple(model.config.image_size))
-    if expected_size is not None:
-        width_expected, height_expected = expected_size[1], expected_size[0]
-
-    predictions = []
-    ground_truth = []
-    previews = []
-
-    for idx, (img, mask, img_path) in enumerate(
+    #per ogni istanza del dataset:
+    for i, (img, mask, img_path) in enumerate(
         zip(dataset["images"], dataset["masks"], dataset["image_paths"]), start=1
     ):
-        print(f"[GPU] Processando immagine {idx}/{len(dataset['images'])}...")
-        if expected_size is not None:
-            img_prepared = cv2.resize(
-                img, (width_expected, height_expected), interpolation=cv2.INTER_LINEAR
-            ).astype(np.float32)
-        else:
-            native_size = (img.shape[0], img.shape[1])
-            model.ensure_feature_extractor_size(native_size)
-            img_prepared = img.astype(np.float32)
+        print(f"[GPU] Processando immagine {i}/{len(dataset['images'])}...")
+        #salvo le dimensioni dell'immagine. img = (altezza, larghezza, 3)
+        image_native_size = (img.shape[0], img.shape[1])
+        #controlliamo che il backbone CNN sia configurato per quella dimensione.
+        #se le dimensioni sono diverse, viene ricostruito il modello mantenendo i pesi
+        model.ensure_feature_extractor_size(image_native_size)
+        #convertiamo l'immagine in float32 come richiesto dai modelli Keras (l'imagine e' anche gia' normalizzata in [0,1] da load_dataset_stateless)
+        img_prepared = img.astype(np.float32)
+        #aggiungiamo una dimensione all'array numPy img_prepared per poterlo passare al feature extractor. img_prepared = (1, altezza, larghezza, 3)
+        #calcoliamo le features dell'immagine e otteniamo in output una feature map delle seguenti dimensioni (1, altezza, larghezza, lista features del pixel)
+        feature_map = model._feature_extractor.predict(np.expand_dims(img_prepared, axis=0), verbose=0)
+        #estraimo le dimensioni della feature map
+        height_feature_map, width_feature_map = feature_map.shape[1:3]
 
-        features = model._feature_extractor.predict(np.expand_dims(img_prepared, axis=0), verbose=0)
-        h_f, w_f = features.shape[1:3]
-
-        feat_flat = features.reshape(-1, features.shape[-1])
-        preds = model.classifier.predict(feat_flat)
-        preds = np.asarray(preds, dtype=int).reshape(h_f, w_f)
-        preds_up = cv2.resize(
+        #appiattiamo la feature map in una matrice 2D per il classificatore
+        #da (1, altezza, larghezza, lista features del pixel) a (altezza * larghezza, lista features del pixel)
+        feature_map_flat = feature_map.reshape(-1, feature_map.shape[-1])
+        #eseguiamo la predizione del classificatore su ogni pixel della feature map
+        #restituisce un array 1D con la classe predetta di ogni pixel es: [1,3,4,1]
+        preds = model.classifier.predict(feature_map_flat)
+        #convertiamo in interi e ripristiniamo la forma originale della feature map
+        preds = np.asarray(preds, dtype=int).reshape(height_feature_map, width_feature_map)
+        #ridimensioniamo la predizione alla dimensione originale dell'immagine
+        preds_upsampled = cv2.resize(
             preds,
-            (mask.shape[1], mask.shape[0]),
-            interpolation=cv2.INTER_NEAREST,
+            (mask.shape[1], mask.shape[0]), #dimensioni target
+            interpolation=cv2.INTER_NEAREST, #interpolazione "nearest" per mantenere i valori interi in modo che corrispondano sempre ad una classe (0, 1, 2, 3, 4)
         )
 
-        original_uint8 = np.clip(img * 255.0, 0, 255).astype(np.uint8)
-        refined_pred = apply_dense_crf(original_uint8, preds_up, len(CLASS_NAMES))
+        #convertiamo l'immagine in formato uint8 (0-255) per il DenseCRF
+        image_uint8 = np.clip(img * 255.0, 0, 255).astype(np.uint8)
+        #applico il DenseCRF per raffinare le predizioni
+        #restituisce numpy array 2D con la classe predetta di ogni pixel
+        CRF_pred = apply_dense_crf(image_uint8, preds_upsampled, len(CLASS_NAMES))
 
-        gt_flat = mask.reshape(-1) - 1
-        pred_flat = refined_pred.reshape(-1)
-        valid = gt_flat >= 0
+        #appiattiamo la maschera in un array 1D e sottraiamo 1 per convertire le classi da [0-5] a [-1-4] 
+        gt_flattened_mask = mask.reshape(-1) - 1
+        #appiattiamo le predizioni con CRF in un array 1D
+        pred_flat = CRF_pred.reshape(-1)
+        #creo una maschera booleana che vale True per i pixel che non sono background (-1)
+        valid = gt_flattened_mask >= 0
+        #se la maschera non ha nessun pixel valido, salto il batch
         if not np.any(valid):
             continue
-
+        
+        #salviamo nelle liste la predizione e il ground truth solo per i pixel validi (non background)
         predictions.extend(pred_flat[valid])
-        ground_truth.extend(gt_flat[valid])
+        ground_truth.extend(gt_flattened_mask[valid])
 
+        #salvo le prime tra immagini da usare succssivamente nell'anteprima
         if len(previews) < 3:
             previews.append(
                 {
-                    "image": img,
-                    "mask_gt": mask,
-                    "mask_pred": refined_pred,
-                    "path": img_path,
+                    "image": img, #immagine originale
+                    "mask_gt": mask, #maschera ground truth
+                    "predicted_mask": CRF_pred, #mashcera predetta dal modello
+                    "path": img_path, #percorso file immagine originale
                 }
             )
 
-    accuracy = accuracy_score(ground_truth, predictions)
+    #calcolo accuracy modello tra pixel maschera ground truth e predizione del modello (solo sui pixel validi)
+    accuracy = accuracy_score(ground_truth, predictions) 
     return {
         "accuracy": accuracy,
         "predictions": np.asarray(predictions, dtype=int),
@@ -205,14 +189,17 @@ def save_preview(previews: list[Dict], output_path: Path) -> None:
     norm = colors.BoundaryNorm([-1.5, -0.5, 0.5, 1.5, 2.5, 3.5, 4.5], cmap.N)
 
     n_rows = len(previews)
-    fig, axes = plt.subplots(n_rows, 3, figsize=(12, 4 * n_rows))
+    fig, axes = plt.subplots(n_rows, 4, figsize=(15, 4 * n_rows))
     if n_rows == 1:
         axes = np.expand_dims(axes, axis=0)
 
     for row_idx, sample in enumerate(previews):
         img = sample["image"]
-        mask_gt = sample["mask_gt"].astype(float) - 1
-        mask_pred = sample["mask_pred"].astype(float)
+        mask_gt_raw = sample["mask_gt"]
+        mask_gt = mask_gt_raw.astype(float) - 1
+        predicted_mask = sample["mask_pred"].astype(float)
+        predicted_mask_filtered = predicted_mask.copy()
+        predicted_mask_filtered[mask_gt_raw == 0] = np.nan
         name = Path(sample["path"]).name
 
         gt_display = np.where(mask_gt < -0.5, np.nan, mask_gt)
@@ -225,9 +212,13 @@ def save_preview(previews: list[Dict], output_path: Path) -> None:
         axes[row_idx, 1].set_title("Maschera Ground Truth")
         axes[row_idx, 1].axis("off")
 
-        axes[row_idx, 2].imshow(mask_pred, cmap=cmap, norm=norm)
+        axes[row_idx, 2].imshow(predicted_mask, cmap=cmap, norm=norm)
         axes[row_idx, 2].set_title("Maschera Predetta (CRF)")
         axes[row_idx, 2].axis("off")
+
+        axes[row_idx, 3].imshow(predicted_mask_filtered, cmap=cmap, norm=norm)
+        axes[row_idx, 3].set_title("Predizione (solo GT>0)")
+        axes[row_idx, 3].axis("off")
 
     handles = [
         plt.Line2D([0], [0], marker="s", color="w", markerfacecolor=cmap(norm(i - 1)), markersize=12)
@@ -235,20 +226,55 @@ def save_preview(previews: list[Dict], output_path: Path) -> None:
     ]
     labels = ["Background"] + CLASS_NAMES
     fig.legend(handles, labels, loc="upper center", ncol=len(labels), fontsize=10)
-    plt.tight_layout(rect=(0, 0, 1, 0.95))
+    plt.tight_layout(rect=(0, 0, 1, 0.94))
     fig.savefig(output_path, dpi=200)
     plt.close(fig)
     print(f"[INFO] Anteprima salvata in: {output_path}")
 
 
+def save_confusion_matrix(cm: np.ndarray, class_names: list[str], output_path: Path) -> None:
+    fig, ax = plt.subplots(figsize=(6, 5))
+    im = ax.imshow(cm, interpolation="nearest", cmap=plt.cm.Blues)
+    fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+
+    ax.set_xticks(range(len(class_names)))
+    ax.set_yticks(range(len(class_names)))
+    ax.set_xticklabels(class_names, rotation=45, ha="right")
+    ax.set_yticklabels(class_names)
+    ax.set_xlabel("Predicted")
+    ax.set_ylabel("Ground Truth")
+    ax.set_title("Confusion Matrix (pixel)")
+
+    max_val = cm.max() if cm.size else 0
+    for i in range(cm.shape[0]):
+        for j in range(cm.shape[1]):
+            value = cm[i, j]
+            text_color = "white" if value > max_val * 0.5 else "black"
+            ax.text(
+                j,
+                i,
+                f"{value:,}",
+                ha="center",
+                va="center",
+                color=text_color,
+                fontsize=9,
+            )
+
+    fig.tight_layout()
+    fig.savefig(output_path, dpi=200)
+    plt.close(fig)
+
+
 def main():
     parser = argparse.ArgumentParser(description="Valutazione modello GPU-optimized con CRF.")
+    #leggo da linea di comando il nome del modello da valutare (senza estensioni).
     parser.add_argument(
         "--model_prefix",
         type=str,
         default=MODEL_PREFIX,
         help="Prefisso dei file salvati (senza _classifier.pkl / _feature_extractor.keras).",
     )
+    
     args = parser.parse_args()
 
     model_path = (BASE_DIR / args.model_prefix).resolve()
@@ -257,28 +283,45 @@ def main():
     print(f"Modello: {model_path}")
     print(f"Immagini: {IMAGES_DIR}")
     print(f"Maschere: {MASKS_DIR}")
-    print(f"CRF disponibile: {CRF_AVAILABLE}")
-    print(f"Max immagini valutate: {MAX_IMAGES}")
+    print(f"CRF attivato")
     print("=" * 50)
-
-    dataset = load_dataset(IMAGES_DIR, MASKS_DIR, MAX_IMAGES)
-    results = evaluate_gpu_model(
-        model_path,
-        dataset,
-        IMAGE_SIZE_OVERRIDE,
-        use_native_resolution=USE_NATIVE_RESOLUTION,
+    #creo un istanza del modello
+    model = GPUOptimizedCNNSegmentationClassifier()
+    #carico il modello addestrato (sia il file keras (CNN + decoder) che il file pkl (classificatore))
+    model.load(str(model_path))
+    #genero o carico gli split del dataset per ottenere gli ID delle immagini di evaluation 
+    # (ovviamente ache se vengono rigenerati gli split, sono gli stessi del training)
+    _, eval_ids = prepare_dataset_splits(
+        images_dir=str(IMAGES_DIR),
+        masks_dir=str(MASKS_DIR),
+        split_dir=str(SPLIT_DIR),
+        train_ratio=0.8,
+        seed=42,
     )
+    #carico le immagini e maschere del set di evaluation e le elaboro in scala di grigi se richiesto
+    images, masks, image_paths = load_dataset_stateless(
+        images_dir=str(IMAGES_DIR),
+        masks_dir=str(MASKS_DIR),
+        image_size=tuple(model.config.image_size), #usa come dimensione quella salvata nel modello
+        use_grayscale=getattr(model.config, "use_grayscale", False), #attivo la conversione in scala di grigi se è presente nel modello
+        image_names=eval_ids, #carico solo le immagini di evaluation (ottenuto prima da prepare_dataset_splits)
+        return_paths=True, #restituisce anche i percorsi delle immagini (ci servono poi per la generazione dell'immagine di anteprima)
+    )
+    dataset = {
+        "images": images,
+        "masks": masks,
+        "image_paths": image_paths,
+    }
+    print(f"Immagini valutate (holdout): {len(dataset['images'])}")
+    #valuto il modello sul set di evaluation
+    results = evaluate_gpu_model(model, dataset)
 
     accuracy = results["accuracy"]
     print(f"\nAccuracy pixel (post-CRF): {accuracy:.4f}")
 
     cm = confusion_matrix(results["ground_truth"], results["predictions"], labels=list(range(len(CLASS_NAMES))))
-    short_names = [name[:4] for name in CLASS_NAMES]
-    print("\nConfusion matrix (classi 0-4):")
-    header = "     " + " ".join(f"{name:>6}" for name in short_names)
-    print(header)
-    for idx, row in enumerate(cm):
-        print(f"{short_names[idx]:>4} " + " ".join(f"{val:>6}" for val in row))
+    save_confusion_matrix(cm, CLASS_NAMES, CONFUSION_PATH)
+    print(f"Matrice di confusione salvata in: {CONFUSION_PATH}")
 
     preview_path = PREVIEW_PATH if PREVIEW_PATH.is_absolute() else (BASE_DIR / PREVIEW_PATH)
     save_preview(results["previews"], preview_path)

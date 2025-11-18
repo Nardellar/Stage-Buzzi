@@ -79,7 +79,7 @@ def filter_missing_class(dataset: Dataset, class_field: str = "class_id") -> Dat
 def build_vit_batch_preprocessor(processor, use_grayscale: bool, label_field: str = "class_id") -> Callable:
     """
     Genera la funzione di preprocessing che prepara un batch completo per il ViT.
-    
+
     La funzione risultante:
     1. Preprocessa le immagini: crop (950px) e opzionale conversione in scala di grigi.
     2. Converte le immagini in tensori PyTorch tramite AutoImageProcessor (resize, normalize).

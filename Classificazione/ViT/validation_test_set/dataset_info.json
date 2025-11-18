@@ -3,7 +3,7 @@
   "citation": "",
   "config_name": "default",
   "dataset_name": "esperimenti",
-  "dataset_size": 225743,
+  "dataset_size": 234143,
   "description": "",
   "download_checksums": {
     "hf://datasets/Nardellar/Esperimenti@84768557956d382a11775305116d475220b56305/Esperimenti/EXP01/Image--01.jpg": {
@@ -5631,7 +5631,7 @@
       ],
       "_type": "ClassLabel"
     },
-    "attribute": {
+    "class_id": {
       "names": [
         "1300",
         "1400",
@@ -5642,11 +5642,11 @@
   },
   "homepage": "",
   "license": "",
-  "size_in_bytes": 2397406897,
+  "size_in_bytes": 2397415297,
   "splits": {
     "train": {
       "name": "train",
-      "num_bytes": 225743,
+      "num_bytes": 234143,
       "num_examples": 1400,
       "dataset_name": "esperimenti"
     }

@@ -11,10 +11,12 @@ import json
 from pathlib import Path
 from typing import Dict
 
+import math
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
 import torch
+import torch.nn.functional as F
 from datasets import Dataset, load_dataset, ClassLabel
 from sklearn.metrics import classification_report, confusion_matrix
 from torch.utils.data import DataLoader
@@ -32,7 +34,7 @@ from dataset_utils import (
     filter_missing_class,
     load_attribute_metadata,
 )
-from train_model_pytorch import build_model  
+from create_and_train_model import build_model
 
 
 def regenerate_validation_split(attribute: str):
@@ -157,6 +159,115 @@ def save_classification_report(report: Dict, output_path: Path):
         json.dump(report, f, indent=4)
 
 
+def generate_attention_maps(
+    model: torch.nn.Module,
+    processor: AutoImageProcessor,
+    use_grayscale: bool,
+    attribute: str,
+    id_to_class: Dict[int, str],
+    device: torch.device,
+    output_dir: Path,
+    num_images: int = 8,
+) -> None:
+    """Genera e salva le attention map del ViT su un sottoinsieme del validation set."""
+    try:
+        dataset = Dataset.load_from_disk("validation_test_set")
+    except FileNotFoundError:
+        print("Impossibile caricare il validation set per le attention map.")
+        return
+
+    if len(dataset) == 0:
+        print("Validation set vuoto: nessuna attention map generata.")
+        return
+
+    num_samples = min(num_images, len(dataset))
+    subset = dataset.select(range(num_samples))
+    transform = build_vit_batch_preprocessor(processor, use_grayscale, label_field="class_id")
+    subset_proc = subset.with_transform(transform)
+    loader = DataLoader(
+        subset_proc,
+        batch_size=num_samples,
+        shuffle=False,
+        collate_fn=default_data_collator,
+        num_workers=0,
+    )
+
+    batch = next(iter(loader))
+    pixel_values = batch["pixel_values"].to(device)
+    labels = batch["labels"].to(device)
+
+    original_attn_impl = None
+    if hasattr(model.vit.config, "_attn_implementation"):
+        original_attn_impl = model.vit.config._attn_implementation
+        model.vit.config._attn_implementation = "eager"
+    elif hasattr(model.vit.config, "attn_implementation"):
+        original_attn_impl = model.vit.config.attn_implementation
+        model.vit.config.attn_implementation = "eager"
+
+    model.eval()
+    try:
+        with torch.no_grad():
+            outputs = model(pixel_values=pixel_values, output_attentions=True)
+
+        attentions = getattr(outputs, "attentions", None)
+        if attentions is None or len(attentions) == 0:
+            print("Attenzione non disponibile nel modello: impossibile generare le attention map.")
+            return
+
+        # Usiamo l'ultimo layer e media sulle head.
+        cls_attn = attentions[-1].mean(dim=1)[:, 0, 1:]  # [batch, num_patches]
+        preds = outputs.logits.argmax(dim=-1)
+
+        cols = min(num_samples, 4)
+        rows = math.ceil(num_samples / cols)
+        fig, axes = plt.subplots(rows, cols, figsize=(4 * cols, 4 * rows))
+        axes = np.array(axes).reshape(rows, cols)
+
+        for idx in range(num_samples):
+            ax = axes[idx // cols, idx % cols]
+            img = pixel_values[idx].detach().cpu().permute(1, 2, 0).numpy()
+            img = (img - img.min()) / (img.max() - img.min() + 1e-8)
+
+            attention_tensor = cls_attn[idx].detach().cpu()
+            patch_dim = int(np.sqrt(attention_tensor.numel()))
+            attention_map = attention_tensor.view(1, 1, patch_dim, patch_dim)
+            attention_resized = (
+                F.interpolate(attention_map, size=img.shape[:2], mode="bilinear", align_corners=False)
+                .squeeze()
+                .numpy()
+            )
+            attention_resized = (attention_resized - attention_resized.min()) / (
+                attention_resized.max() - attention_resized.min() + 1e-8
+            )
+
+            ax.imshow(img)
+            ax.imshow(attention_resized, cmap="jet", alpha=0.5)
+            true_label = id_to_class[int(labels[idx].item())]
+            pred_label = id_to_class[int(preds[idx].item())]
+            color = "green" if true_label == pred_label else "red"
+            ax.set_title(f"True: {true_label}\nPred: {pred_label}", color=color, fontsize=10)
+            ax.axis("off")
+
+        # Nasconde eventuali subplot vuoti
+        for idx in range(num_samples, rows * cols):
+            axes[idx // cols, idx % cols].axis("off")
+
+        output_dir.mkdir(exist_ok=True)
+        attn_path = output_dir / f"attention_maps_{attribute}.png"
+        plt.tight_layout()
+        plt.savefig(attn_path, dpi=200)
+        plt.close(fig)
+        print(f"Attention maps salvate in: {attn_path}")
+    except Exception as exc:
+        print(f"Errore durante la generazione delle attention maps: {exc}")
+    finally:
+        if original_attn_impl is not None:
+            if hasattr(model.vit.config, "_attn_implementation"):
+                model.vit.config._attn_implementation = original_attn_impl
+            elif hasattr(model.vit.config, "attn_implementation"):
+                model.vit.config.attn_implementation = original_attn_impl
+
+
 def main():
     parser = argparse.ArgumentParser(description="Valuta un modello ViT salvato con Trainer.")
     #la cartella in cui cercare il modello
@@ -270,6 +381,19 @@ def main():
     print(f"Report salvato in: {output_dir / 'classification_report.json'}")
     print(f"Confusion matrix salvata in: {output_dir / 'confusion_matrix.png'}")
 
+    generate_attention_maps(
+        model=model,
+        processor=processor,
+        use_grayscale=use_grayscale,
+        attribute=attribute,
+        id_to_class=id_to_class,
+        device=device,
+        output_dir=output_dir,
+        num_images=max(1, ATTENTION_SAMPLES),
+    )
+
 
 if __name__ == "__main__":
     main()
+# Numero di immagini per cui salvare le attention map (validation set).
+ATTENTION_SAMPLES = 8

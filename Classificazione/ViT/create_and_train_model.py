@@ -57,6 +57,7 @@ import json
 from collections import Counter
 from pathlib import Path
 from typing import Dict, Tuple
+from sklearn.utils.class_weight import compute_class_weight
 
 import torch
 import torch.nn as nn
@@ -143,12 +144,10 @@ def prepare_datasets(attribute: str, use_grayscale: bool) -> Tuple[torch.utils.d
     images_per_class = Counter(train_ds["class_id"]) #conta quante immagini ci sono per ogni classe nel training set
     total_samples = sum(images_per_class.values())
     num_classes = len(classes)
-    #i class weight sono salvati in un tensore pytorch, che contiene i pesi per ogni classe
-    #es: [1-17, 2.33, 0.58] (le classi minoritarie hanno peso maggiore)
-    class_weights = torch.tensor(
-        [total_samples / (num_classes * images_per_class[i]) for i in range(num_classes)],
-        dtype=torch.float32,
-    )
+    #calcolo i pesi bilanciati per ogni classe
+    weights = compute_class_weight(class_weight="balanced", classes=list(range(num_classes)), y=train_ds["class_id"],)
+    #converto i pesi in un tensore pytorch
+    class_weights = torch.tensor(weights, dtype=torch.float32)
 
     print("\nDistribuzione classi nel train set:")
     for class_id, count in sorted(images_per_class.items()):
