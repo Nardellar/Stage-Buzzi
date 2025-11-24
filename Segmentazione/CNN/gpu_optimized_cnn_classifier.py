@@ -17,7 +17,7 @@ import xgboost as xgb
 import lightgbm as lgb
 
 from data_module import (
-    load_dataset,
+    load_dataset_stateless,
     augment_dataset,
     compute_class_weights_dict,
 )
@@ -40,6 +40,11 @@ class XGBBoosterWrapper:
         preds = self.booster.predict(dmatrix)
         #restituisce l'indice della classe con la probabilità più alta per ogni campione del batch. (es: [2, 0, 1, ...])
         return np.argmax(preds, axis=1)
+
+    def predict_proba(self, X: np.ndarray) -> np.ndarray:
+        """Restituisce le probabilita' di ogni classe per un batch di dati (shape: batch x num_classi)."""
+        dmatrix = xgb.DMatrix(X)
+        return self.booster.predict(dmatrix)
 
 #dataclass che centralizza tutti i parametri di configurazione della segmentazione
 @dataclass
@@ -68,7 +73,7 @@ class GPUClassifierConfig:
     #abilita l'uso della GPU per il classificatore
     use_gpu: bool = True
     #numero di classi da classificare
-    num_classes: int = 5
+    num_classes: int = 6
     #filtri dei blocchi Convoluzionali del decoder che raffinano la feature-map
     decoder_filters: int = 128
 
@@ -93,6 +98,7 @@ class GPUOptimizedCNNSegmentationClassifier:
             "Fase Fusa",
             "Belite",
             "Alite",
+            "Classe 6",
         ]
         #modello CNN. verra' definito dopo da "build_feature_extractor()"
         self._feature_extractor = None
@@ -113,6 +119,15 @@ class GPUOptimizedCNNSegmentationClassifier:
         #dimensione corrente dell'immagine. definita in "extract_features()" per sapere a che dimensione creare l'estrattore
         self.current_image_size = tuple(self.config.image_size)
 
+    def release_feature_extractor(self):
+        """Libera la VRAM usata dall'estrattore (dopo aver estratto le feature) mantenendo i pesi per ricostruirlo se serve."""
+        if self._feature_extractor is None:
+            return
+        if self._feature_extractor_weights is None:
+            self._feature_extractor_weights = self._feature_extractor.get_weights()
+        self._feature_extractor = None
+        tf.keras.backend.clear_session()
+
     # ------------------------------------------------------------------ #
     # Data loading
     # ------------------------------------------------------------------ #
@@ -121,7 +136,7 @@ class GPUOptimizedCNNSegmentationClassifier:
     def load_train_data(self, filenames: Optional[Iterable[str]] = None):
         """Carica le immagini e maschere specificate dal dataset e le salva internamente. Applica Augmentation e/o scala di grigi se richiesto."""
 
-        images, masks = load_dataset(
+        images, masks = load_dataset_stateless(
             #specifico le cartelle da dove prendere i dati
             images_dir=self.images_dir,
             masks_dir=self.masks_dir,
@@ -130,7 +145,7 @@ class GPUOptimizedCNNSegmentationClassifier:
             #specifico se voglio caricarle in scala di grigi
             use_grayscale=self.config.use_grayscale,
             #specifico le immagini che vogliamo caricare (quelle del training)
-            filenames=filenames,
+            image_names=filenames,
         )
 
         #applico l'augmentation se richiesto
@@ -209,7 +224,7 @@ class GPUOptimizedCNNSegmentationClassifier:
                 label_flat = mask_resized.reshape(-1)
                 #filtriamo entrambi togliendo tutte le informazioni con pixel di background(cioe' con valid = False)
                 filtered_features = flat_features[valid.ravel()]
-                label_filtered = label_flat[valid.ravel()] - 1 #diminuiamo di 1 le label per usare l'intervallo da 0 ...4 piuttosto che 1 ... 5 (ora che abbiamo tolto la label 0 di background) per poter essere compatibili con i classificatori (XGBoost/LightGBM)
+                label_filtered = label_flat[valid.ravel()] - 1 #diminuiamo di 1 le label per usare l'intervallo da 0 ... 5 piuttosto che 1 ... 6 (ora che abbiamo tolto la label 0 di background) per poter essere compatibili con i classificatori (XGBoost/LightGBM)
 
                 #ci assicuriamo che eventuali valori fuori range vengano riportati nei limiti [0, 4]
                 label_filtered = np.clip(label_filtered, 0, self.config.num_classes - 1)
@@ -273,7 +288,14 @@ class GPUOptimizedCNNSegmentationClassifier:
         target_size = (int(image_size[0]), int(image_size[1]))
         #Controlla che il modello sia gia' stato costruito. se no lo costruisce
         if self._feature_extractor is None:
-            raise RuntimeError("Feature extractor non inizializzato: carica o addestra il modello prima.")
+            rebuilt = self._build_feature_extractor(override_image_size=target_size)
+            if self._feature_extractor_weights is not None:
+                rebuilt.set_weights(self._feature_extractor_weights)
+            else:
+                self._feature_extractor_weights = rebuilt.get_weights()
+            self._feature_extractor = rebuilt
+            self.current_image_size = target_size
+            return
 
         #Se la dimensione dell'immagine richiesta e' la stessa del modello corrente, non fa nulla
         if tuple(self.current_image_size) == target_size:
@@ -403,7 +425,6 @@ class GPUOptimizedCNNSegmentationClassifier:
             pixels_labels=self.pixels_labels,
             class_weights=self.class_weights,
             n_trials=n_trials,
-            timeout=timeout,
             validation_data=validation_data,
         )
 
@@ -425,20 +446,35 @@ class GPUOptimizedCNNSegmentationClassifier:
     def save(self, path_prefix: str):
         """Salva feature extractor (+) classificatore su disco."""
         #controllo che il modello sia stato addestrato e che l'estrattore sia stato costruito
-        if self.classifier is None or self._feature_extractor is None:
+        if self.classifier is None:
             raise RuntimeError("Modello non addestrato, nulla da salvare.")
+
+        if self._feature_extractor is None:
+            self.ensure_feature_extractor_size(self.current_image_size)
 
         #definisco il path e salvo il modello per intero con .save (pesi + struttura)
         feature_path = f"{path_prefix}_feature_extractor.keras"
         self._feature_extractor.save(feature_path)
 
         #creo un dizionario per salvare i metadati del classificatore
+        booster_path = None
+        classifier_payload = self.classifier
+        classifier_type = "lightgbm_or_sklearn"
+        #se è XGBoost, salviamo il booster con il formato nativo invece di picklare l'oggetto (evita warning su versioni diverse)
+        if isinstance(self.classifier, XGBBoosterWrapper):
+            booster_path = f"{path_prefix}_classifier.json"
+            self.classifier.booster.save_model(booster_path)
+            classifier_payload = None
+            classifier_type = "xgboost"
+
         payload = {
-            "classifier": self.classifier,
+            "classifier_type": classifier_type,
+            "classifier": classifier_payload,
             "best_params": self.best_params,
             "class_weights": self.class_weights,
             "config": self.config,
             "best_num_boost_round": self.best_num_boost_round,
+            "booster_path": booster_path,
         }
         #salvo gli iperparametri del classificatore in un file apposito
         with open(f"{path_prefix}_classifier.pkl", "wb") as f:
@@ -463,12 +499,20 @@ class GPUOptimizedCNNSegmentationClassifier:
         with open(classifier_path, "rb") as f:
             payload = pickle.load(f)
 
+        # backward compatibility: vecchi file pickle non contenevano classifier_type/booster_path
+        if "classifier_type" not in payload:
+            payload["classifier_type"] = "legacy_pickle"
+        if "booster_path" not in payload:
+            payload["booster_path"] = None
+
         required_keys = [
+            "classifier_type",
             "classifier",
             "best_params",
             "class_weights",
             "config",
             "best_num_boost_round",
+            "booster_path",
         ]
         #controlla che tutti i campi siano presenti
         missing = [key for key in required_keys if key not in payload]
@@ -478,8 +522,17 @@ class GPUOptimizedCNNSegmentationClassifier:
                 "Rigenera i file salvando nuovamente il modello completo."
             )
 
+        classifier_type = payload["classifier_type"]
         #salvo il classificatore e tutti i metadati nel modello
-        self.classifier = payload["classifier"]
+        if classifier_type == "xgboost":
+            booster_path = payload.get("booster_path")
+            if booster_path is None or not os.path.exists(booster_path):
+                raise FileNotFoundError("File booster XGBoost mancante: impossibile ricostruire il classificatore.")
+            booster = xgb.Booster()
+            booster.load_model(booster_path)
+            self.classifier = XGBBoosterWrapper(booster, payload["config"].num_classes)
+        else:
+            self.classifier = payload["classifier"]
         self.best_params = payload["best_params"]
         self.class_weights = payload["class_weights"]
         self.config = payload["config"]

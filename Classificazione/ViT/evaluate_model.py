@@ -36,6 +36,9 @@ from dataset_utils import (
 )
 from create_and_train_model import build_model
 
+# Numero di immagini per cui salvare le attention map (validation set).
+ATTENTION_SAMPLES = 8
+
 
 def regenerate_validation_split(attribute: str):
     """Rigenera lo stesso validation set stratificato usato durante il training."""
@@ -395,5 +398,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-# Numero di immagini per cui salvare le attention map (validation set).
-ATTENTION_SAMPLES = 8

@@ -57,6 +57,8 @@ import json
 from collections import Counter
 from pathlib import Path
 from typing import Dict, Tuple
+
+import numpy as np
 from sklearn.utils.class_weight import compute_class_weight
 
 import torch
@@ -145,7 +147,11 @@ def prepare_datasets(attribute: str, use_grayscale: bool) -> Tuple[torch.utils.d
     total_samples = sum(images_per_class.values())
     num_classes = len(classes)
     #calcolo i pesi bilanciati per ogni classe
-    weights = compute_class_weight(class_weight="balanced", classes=list(range(num_classes)), y=train_ds["class_id"],)
+    weights = compute_class_weight(
+        class_weight="balanced",
+        classes=np.arange(num_classes, dtype=int),
+        y=train_ds["class_id"],
+    )
     #converto i pesi in un tensore pytorch
     class_weights = torch.tensor(weights, dtype=torch.float32)
 

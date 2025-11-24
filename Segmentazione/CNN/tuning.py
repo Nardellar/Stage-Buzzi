@@ -294,18 +294,39 @@ def tune_classifier(config: "GPUClassifierConfig", pixels_features: np.ndarray, 
         #determiniamo il numero migliore di iterazioni di boosting per train finale
         num_boost_round = int(best_iteration) + 1
         #creo la struttura dati (DMatrix) usata da XGBoost per il training
+       
         train_dMatrix = xgb.DMatrix(
             data = pixels_features,
             label = pixels_labels,
             weight = calculate_pixels_weights(pixels_labels, class_weights),
         )
-        #addestriamo il modello finale su tutti i dati di training
-        trained_booster = xgb.train(
-            params=train_params,  # iperparametri ottimizzati da Optuna e configurazione GPU/CPU
-            dtrain=train_dMatrix,  # dati di training (features, labels, pesi)
-            num_boost_round=num_boost_round,  # numero di iterazioni di boosting (best_iteration + 1)
-            verbose_eval=False,  # log disabilitati
-        )
+        try:
+            #addestriamo il modello finale su tutti i dati di training
+            trained_booster = xgb.train(
+                params=train_params,  # iperparametri ottimizzati da Optuna e configurazione GPU/CPU
+                dtrain=train_dMatrix,  # dati di training (features, labels, pesi)
+                num_boost_round=num_boost_round,  # numero di iterazioni di boosting (best_iteration + 1)
+                verbose_eval=False,  # log disabilitati
+            )
+        #se l'addestramento fallisce: (es: OOM della GPU) ritento il train finale con CPU
+        except xgb.core.XGBoostError as ex:
+            if config.use_gpu:
+                warnings.warn(
+                    f"XGBoost GPU non disponibile per il training finale ({ex}). Riprovo in CPU.",
+                    RuntimeWarning,
+                )
+                cpu_params = train_params.copy()
+                cpu_params["tree_method"] = "hist"
+                cpu_params.pop("predictor", None)
+                cpu_params.pop("device", None)
+                trained_booster = xgb.train(
+                    params=cpu_params,
+                    dtrain=train_dMatrix,
+                    num_boost_round=num_boost_round,
+                    verbose_eval=False,
+                )
+            else:
+                raise
         # Import locale per evitare import circolare (gpu_optimized_cnn_classifier importa tune_classifier)
         from gpu_optimized_cnn_classifier import XGBBoosterWrapper
         #creo un wrapper che rende il classificatore finale compatibile allinterfaccia skleran (metodo predict() ) 

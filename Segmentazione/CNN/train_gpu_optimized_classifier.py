@@ -84,13 +84,13 @@ def main():
     print(f"Batch size feature       : {BATCH_SIZE}")
     feature_map_desc = (
         "uguale all'immagine"
-        if FEATURE_MAP_SIZE in (None)
+        if FEATURE_MAP_SIZE is None
         else f"{FEATURE_MAP_SIZE}x{FEATURE_MAP_SIZE}"
     )
     print(f"Feature map size         : {feature_map_desc}")
     max_pixels_desc = (
         "tutti quelli dell'immagine"
-        if MAX_PIXELS_PER_IMAGE in (None)
+        if MAX_PIXELS_PER_IMAGE is None
         else MAX_PIXELS_PER_IMAGE
     )
     print(f"Max pixel per immagine   : {max_pixels_desc}")
@@ -146,7 +146,7 @@ def main():
         masks_dir=str(MASKS_DIR),
         image_size=tuple(config.image_size),
         use_grayscale=config.use_grayscale,
-        filenames=eval_ids,
+        image_names=eval_ids,
         )
         #calcoliamo features e label per ogni pixel valido (non appartennti allo sfondo) di ogni immagine del validation set
         validation_data = model.extract_features_stateless(
@@ -155,6 +155,8 @@ def main():
         )
         features_val = validation_data[0]
         print(f"Feature validation       : {features_val.shape}")
+        #liberiamo la VRAM occupata dall'estrattore (feature/label già salvate in RAM/CPU)
+        model.release_feature_extractor()
 
         print("\n3. Training classificatore con Optuna...")
         #avviamo il training del classificatore e gli passiamo l'evaluation set per valutare il migliore, otteniamo la miglior accuracy
@@ -177,4 +179,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
