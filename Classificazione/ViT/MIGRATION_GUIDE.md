@@ -29,7 +29,7 @@ Migrazione completa a **PyTorch nativo** con **best practices HuggingFace**.
 Avvia il training con:
 
 ```bash
-python train_model_pytorch.py temperatura
+python create_and_train_model.py temperatura
 ```
 
 oppure usa l'attributo che preferisci come argomento.

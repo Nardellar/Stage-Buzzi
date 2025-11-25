@@ -44,7 +44,7 @@ CONFUSION_PATH = BASE_DIR / "gpu_confusion_matrix.png"
 #Percorso della cartella contenente gli split del dataset.
 SPLIT_DIR = (BASE_DIR / "splits").resolve()
 #Nomi delle classi da classificare.
-CLASS_NAMES = ["Resina", "Pori/Imperfezioni", "Fase Fusa", "Belite", "Alite", "Classe 6"]
+CLASS_NAMES = ["Resina", "Pori/Imperfezioni", "Fase Fusa", "Belite", "Alite"]
 
 
 def apply_dense_crf(image: np.ndarray, predicted_mask: np.ndarray, num_classes: int) -> np.ndarray:
@@ -53,7 +53,7 @@ def apply_dense_crf(image: np.ndarray, predicted_mask: np.ndarray, num_classes: 
     Args:
         image: Immagine in formato uint8 (0-255) con dimensioni (altezza, larghezza, 3)
          predicted_mask: Maschera predetta dal modello in formato float (probabilità per classe) con dimensioni (altezza, larghezza, num_classi)
-        num_classes: Numero di classi da classificare (6)
+        num_classes: Numero di classi da classificare (5)
     Returns:
         Maschera raffinata in formato int32 (0-6)
     """
@@ -200,8 +200,10 @@ def evaluate_gpu_model(model, dataset: Dict[str, np.ndarray],) -> Dict:
         #restituisce numpy array 2D con la classe predetta di ogni pixel
         CRF_pred = apply_dense_crf(image_uint8, preds_upsampled, len(CLASS_NAMES))
 
-        #appiattiamo la maschera in un array 1D e sottraiamo 1 per convertire le classi da [0-6] a [-1-5]
-        gt_flattened_mask = mask.reshape(-1) - 1
+        #appiattiamo la maschera in un array 1D e sottraiamo 1 per convertire le classi da [0-4] a [-1-3]
+        #mappo eventuali label fuori range su background prima del flatten
+        mask_clean = np.where(mask > len(CLASS_NAMES), 0, mask)
+        gt_flattened_mask = mask_clean.reshape(-1) - 1
         #appiattiamo le predizioni con CRF in un array 1D
         pred_flat = CRF_pred.reshape(-1)
         #creo una maschera booleana che vale True per i pixel che non sono background (-1)
@@ -248,10 +250,10 @@ def save_preview(previews: list[Dict], output_path: Path) -> None:
 
     #creaimo i colori da usare nelle immagini
     color_map = colors.ListedColormap(
-        ["#9e9e9e", "#ff6f69", "#ffcc5c", "#88d8b0", "#6b5b95", "#2a9d8f", "#f4a261"]
+        ["#9e9e9e", "#ff6f69", "#ffcc5c", "#88d8b0", "#6b5b95", "#2a9d8f"]
     )
     #impostiamo il range di valori che i pixel possono aver per cui assegnare un certo colore
-    norm = colors.BoundaryNorm([-1.5, -0.5, 0.5, 1.5, 2.5, 3.5, 4.5, 5.5], color_map.N)
+    norm = colors.BoundaryNorm([-1.5, -0.5, 0.5, 1.5, 2.5, 3.5, 4.5], color_map.N)
     #creiamo una griglia di altezza numero prewiews (3) e larghezza 4
     n_rows = len(previews)
     fig, axes = plt.subplots(n_rows, 4, figsize=(15, 4 * n_rows))

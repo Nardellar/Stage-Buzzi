@@ -16,7 +16,7 @@ Questa implementazione usa **PyTorch nativo** con le **best practices di Hugging
 
 ### Training
 ```bash
-python train_model_pytorch.py temperatura
+python create_and_train_model.py temperatura
 ```
 
 ### Evaluation

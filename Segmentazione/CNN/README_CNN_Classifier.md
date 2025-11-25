@@ -7,7 +7,7 @@ Questo sistema implementa un approccio moderno per la segmentazione delle compon
 Il sistema utilizza un approccio a due fasi:
 
 1. **Encoder CNN**: Estrae features multi-scala da un modello pre-addestrato (ResNet50, EfficientNet, o VGG16)
-2. **Classificatore XGBoost**: Classifica ogni pixel nelle 5 classi utili
+2. **Classificatore XGBoost**: Classifica ogni pixel nelle 6 classi utili
 
 ### Classi di Segmentazione
 
@@ -17,6 +17,7 @@ Il sistema utilizza un approccio a due fasi:
 - **Classe 3**: Fase fusa
 - **Classe 4**: Belite
 - **Classe 5**: Alite
+- **Classe 6**: Classe 6 (label sconosciuta)
 
 ## File Principali
 
@@ -86,7 +87,7 @@ python test_cnn_classifier.py --image_dir ../images/Immagini/ --num_images 3 --s
 ### Gestione delle Classi:
 
 - **Filtraggio automatico**: Esclude automaticamente i pixel di classe 0 (non etichettati)
-- **Rimappatura**: Converte le etichette da 1-5 a 0-4 per il classificatore
+- **Rimappatura**: Converte le etichette da 1-6 a 0-5 per il classificatore
 - **Validazione**: Verifica la distribuzione delle classi durante il caricamento
 
 ### Ottimizzazioni:

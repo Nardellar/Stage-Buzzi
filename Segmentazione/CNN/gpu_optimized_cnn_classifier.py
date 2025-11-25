@@ -73,7 +73,7 @@ class GPUClassifierConfig:
     #abilita l'uso della GPU per il classificatore
     use_gpu: bool = True
     #numero di classi da classificare
-    num_classes: int = 6
+    num_classes: int = 5
     #filtri dei blocchi Convoluzionali del decoder che raffinano la feature-map
     decoder_filters: int = 128
 
@@ -98,7 +98,6 @@ class GPUOptimizedCNNSegmentationClassifier:
             "Fase Fusa",
             "Belite",
             "Alite",
-            "Classe 6",
         ]
         #modello CNN. verra' definito dopo da "build_feature_extractor()"
         self._feature_extractor = None
@@ -147,6 +146,9 @@ class GPUOptimizedCNNSegmentationClassifier:
             #specifico le immagini che vogliamo caricare (quelle del training)
             image_names=filenames,
         )
+        #rimappo eventuali classi fuori range (es. label 6) su background per allineare a num_classes
+        if self.config.num_classes is not None:
+            masks = np.where(masks > self.config.num_classes, 0, masks)
 
         #applico l'augmentation se richiesto
         if self.config.use_augmentation:
