@@ -167,8 +167,8 @@ def prepare_datasets(attribute: str, use_grayscale: bool) -> Tuple[torch.utils.d
     for class_id, count in sorted(images_per_class.items()):
         print(f"  - {id_to_class[class_id]}: {count} immagini")
 
-    # Classe di HuggingFace che individua automaticamente il preprocessor corretto.
-    processor = AutoImageProcessor.from_pretrained(MODEL_NAME)
+    # Usiamo il processor veloce per ridurre il lavoro CPU durante il preprocessing on-the-fly.
+    processor = AutoImageProcessor.from_pretrained(MODEL_NAME, use_fast=True)
     # Applica trasformazioni ai due set (crop, scala di grigi, normalizzazione, aggiunta labels).
     transform = build_vit_batch_preprocessor(processor, use_grayscale, label_field="class_id")
     train_ds = train_ds.with_transform(transform)
@@ -270,11 +270,12 @@ def main():
     model.config.label2id = class_to_id
 
     # 3) Definizione degli iperparametri e delle policy di training
+    use_mixed_precision = torch.cuda.is_available()
     training_args = TrainingArguments(
         output_dir=str(results_dir), #specifica dove salvare i risultati dell'addestramento
-        per_device_train_batch_size=16,
-        per_device_eval_batch_size=16,
-        num_train_epochs=2, #<- numero di epoche
+        per_device_train_batch_size=32,
+        per_device_eval_batch_size=64,
+        num_train_epochs=100, #<- numero di epoche
         eval_strategy='epoch', #valuta il validation dopo ogni epoca
         save_strategy='epoch', #salva un checkpopoint alla fine di ogni epoca
         save_total_limit=1, # mantiene solo l'ultimo checkpoint
@@ -290,6 +291,9 @@ def main():
         logging_steps=50,
         logging_dir=str(results_dir / 'logs'), #dove salvare i logs
         report_to='tensorboard', #puoi visualizzare i risultati anche su tensorboard con "tensorboard --logdir training_results_temperatura/logs" su terminale
+        dataloader_num_workers=4,
+        dataloader_pin_memory=torch.cuda.is_available(),
+        fp16=use_mixed_precision,
         remove_unused_columns=False,
         seed=42,
     )
@@ -328,6 +332,10 @@ def main():
     print(f"Metric for best model  : {training_args.metric_for_best_model}")
     print(f"Class Weights          : ATTIVI (bilanciamento classi)")
     print(f"Batch Size             : {training_args.per_device_train_batch_size}")
+    print(f"Eval Batch Size        : {training_args.per_device_eval_batch_size}")
+    print(f"Dataloader Workers     : {training_args.dataloader_num_workers}")
+    print(f"Pinned Memory          : {training_args.dataloader_pin_memory}")
+    print(f"Mixed Precision FP16   : {training_args.fp16}")
     print(f"Num Epoch              : {training_args.num_train_epochs}")
     print(f"Training Samples       : {len(train_ds)}")
     print(f"Validation Samples     : {len(val_ds)}")

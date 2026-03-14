@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
@@ -9,9 +10,59 @@ import matplotlib.patches as mpatches  # <-- ECCO LA CORREZIONE
 IMAGE_DIR = "../images/Immagini/"
 MASK_DIR = "../images/Maschere/"
 
-# Seleziona quale coppia immagine/maschera vuoi visualizzare (es. il primo file, il decimo, ecc.)
-FILE_INDEX = 9
-#NON ADDESTRARE LA CLASSE Modifica questo idice per visualizzare file diversi
+# Seleziona quale coppia immagine/maschera vuoi visualizzare tramite nome file.
+# Puoi usare sia il nome completo (es. "1253--27.png") sia solo lo stem (es. "1253--27").
+FILE_NAME = "siniscola_OPC_10x--101"
+
+# Se FILE_NAME è vuoto, viene usato il fallback per indice.
+FILE_INDEX = 3
+#NON ADDESTRARE LA CLASSE Modifica questo indice per visualizzare file diversi
+
+
+def _resolve_image_mask_paths(image_files, mask_files):
+    """Restituisce i path di immagine e maschera a partire da FILE_NAME o FILE_INDEX."""
+    if FILE_NAME and FILE_NAME.strip():
+        requested_name = FILE_NAME.strip()
+        requested_stem = Path(requested_name).stem
+
+        image_match = next((f for f in image_files if Path(f).stem == requested_stem or f == requested_name), None)
+        if image_match is None:
+            raise FileNotFoundError(f"Immagine '{requested_name}' non trovata in {IMAGE_DIR}")
+
+        mask_matches = [f for f in mask_files if Path(f).stem == requested_stem]
+        if not mask_matches:
+            raise FileNotFoundError(f"Maschera associata a '{requested_name}' non trovata in {MASK_DIR}")
+        if len(mask_matches) > 1:
+            raise ValueError(
+                f"Trovate più maschere per '{requested_stem}': {mask_matches}. Risolvi l'ambiguità mantenendo un solo file."
+            )
+
+        return (
+            os.path.join(IMAGE_DIR, image_match),
+            os.path.join(MASK_DIR, mask_matches[0]),
+            image_match,
+            mask_matches[0],
+        )
+
+    if FILE_INDEX >= len(image_files):
+        raise IndexError(f"L'indice {FILE_INDEX} è troppo grande. Ci sono solo {len(image_files)} file immagine.")
+
+    image_match = image_files[FILE_INDEX]
+    requested_stem = Path(image_match).stem
+    mask_matches = [f for f in mask_files if Path(f).stem == requested_stem]
+    if not mask_matches:
+        raise FileNotFoundError(f"Maschera associata a '{image_match}' non trovata in {MASK_DIR}")
+    if len(mask_matches) > 1:
+        raise ValueError(
+            f"Trovate più maschere per '{requested_stem}': {mask_matches}. Risolvi l'ambiguità mantenendo un solo file."
+        )
+
+    return (
+        os.path.join(IMAGE_DIR, image_match),
+        os.path.join(MASK_DIR, mask_matches[0]),
+        image_match,
+        mask_matches[0],
+    )
 
 
 def visualize_single_mask():
@@ -30,32 +81,26 @@ def visualize_single_mask():
         print("Nessun file trovato nelle cartelle.")
         return
 
-    if FILE_INDEX >= len(image_files):
-        print(f"ERRORE: L'indice {FILE_INDEX} è troppo grande. Ci sono solo {len(image_files)} file.")
+    try:
+        img_path, mask_path, image_name, mask_name = _resolve_image_mask_paths(image_files, mask_files)
+    except (FileNotFoundError, ValueError, IndexError) as exc:
+        print(f"ERRORE: {exc}")
         return
-
-    # Seleziona i file in base all'indice
-    img_path = os.path.join(IMAGE_DIR, image_files[FILE_INDEX])
-    mask_path = os.path.join(MASK_DIR, mask_files[FILE_INDEX])
 
     # Carica l'immagine e la maschera
     image = cv2.imread(img_path)
-
     if image is None:
-        print(f"ERRORE: Impossibile caricare l'immagine: {img_path}")
-        print(f"Percorso assoluto tentato: {os.path.abspath(img_path)}")
+        print(f"ERRORE: impossibile leggere l'immagine {img_path}")
         return
-
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)  # Converti per matplotlib
     mask = cv2.imread(mask_path, cv2.IMREAD_UNCHANGED)
-
     if mask is None:
-        print(f"ERRORE: Impossibile caricare la maschera: {mask_path}")
+        print(f"ERRORE: impossibile leggere la maschera {mask_path}")
         return
 
     print(f"\nVisualizzazione di:")
-    print(f"  - Immagine: {image_files[FILE_INDEX]}")
-    print(f"  - Maschera: {mask_files[FILE_INDEX]}")
+    print(f"  - Immagine: {image_name}")
+    print(f"  - Maschera: {mask_name}")
 
     unique_values = np.unique(mask)
     print(f"Valori trovati in questa maschera: {unique_values}")
@@ -95,7 +140,7 @@ def visualize_single_mask():
     axes[1].legend(handles=legend_patches, loc='lower right')
     axes[1].axis('off')
 
-    plt.suptitle(f"Analisi di '{mask_files[FILE_INDEX]}'", fontsize=16)
+    plt.suptitle(f"Analisi di '{mask_name}'", fontsize=16)
     plt.tight_layout()
     plt.show()
 

@@ -1,7 +1,6 @@
 """
 Utilities per il tuning basato su Optuna dei classificatori boosting.
 """
-
 from __future__ import annotations
 
 import warnings
@@ -11,7 +10,7 @@ import lightgbm as lgb
 import numpy as np
 import optuna
 import xgboost as xgb
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, f1_score
 from sklearn.model_selection import train_test_split
 
 if TYPE_CHECKING:
@@ -270,12 +269,12 @@ def tune_classifier(config: "GPUClassifierConfig", pixels_features: np.ndarray, 
             #converto le predizioni probabilistiche di ogni classe in un array che salva solo la classe piu' probabile (es: [[0.1, 0.3, 0.6], [0.8, 0.1, 0.1], ...] -> [2, 0, 1, ...])
             preds = np.argmax(preds_raw, axis=1)
 
-        #restituiamo l'accuracy del trial (calcolando in percentuale quante volte val_labels = preds)
-        return accuracy_score(val_labels, preds)
+        #restituiamo l'f1 macro del trial (metrica robusta allo sbilanciamento delle classi)
+        return f1_score(val_labels, preds, average="macro")
 
 
     
-    #creiamo uno study optuna per l'ottimizzazione dei parametri (con direzione massimizzazione dell'accuracy)
+    #creiamo uno study optuna per l'ottimizzazione dei parametri (con direzione massimizzazione dell'f1 macro)
     study = optuna.create_study(direction="maximize")
     #eseguiamo l'ottimizzazione eseguendo train_and_evaluate_trial n_trials volte
     study.optimize(train_and_evaluate_trial, n_trials=n_trials)
@@ -359,7 +358,7 @@ def tune_classifier(config: "GPUClassifierConfig", pixels_features: np.ndarray, 
         #numero di iterazioni usate per salvare il modello finale (basate sul numero di iterazioni del trail migliore) -> evita overfitting
         final_iteration = num_boost_round
 
-    #restituiamo accuracy, il classifciatore, i migliori parametri trovati ed il numero di iterazioni 
+    #restituiamo f1 macro, il classifciatore, i migliori parametri trovati ed il numero di iterazioni
     return best_value, classifier, best_params, final_iteration
 
 
