@@ -132,7 +132,7 @@ def evaluate(model, dataloader, device, id_to_class: Dict[int, str]):
             true_class_ids.extend(true_class_ids_batch.cpu().numpy())
 
     class_values = [id_to_class[i] for i in range(len(id_to_class))]
-    #genero il report json
+    #calcolo le metriche e genero il report json
     report = classification_report(true_class_ids, predictions, target_names=class_values, output_dict=True)
 
     #genero la matrice di confusione

@@ -185,25 +185,6 @@ def _match_image_mask_pairs(images_dir: str, masks_dir: str) -> List[Tuple[Path,
             pairs.append((img_path, mask_path))
     return pairs
 
-#Serve piu avanti per stratificare il dataset in train e eval
-def _dominant_class(mask_path: Path) -> int:
-    """
-    Data una maschera, restiuisce (senza considerare il background" ka label piu' presente)
-    """
-    #apriamo la maschera con PIL e la convertiamo in un array NumPy
-    mask = np.array(Image.open(mask_path))
-    #controlliamo se la maschera ha 3 canali (RGB) e nel caso la convertiamo ad un solo canale (grigio) (lo facciamo per avere un array 2D)
-    if mask.ndim == 3:
-        mask = cv2.cvtColor(mask, cv2.COLOR_RGB2GRAY)
-    #di ogni maschera consideriamo solo i pixel non della classe 0
-    valid = mask[mask > 0]
-    if valid.size == 0:
-        return 0
-    unique, counts = np.unique(valid, return_counts=True)
-    #restituisco la classe con frequenza piu alta
-    return int(unique[np.argmax(counts)])
-
-
 def prepare_dataset_splits(images_dir: str, masks_dir: str, split_dir: str, train_ratio: float = 0.8, seed: int = 42,) -> Tuple[List[str], List[str]]:
     """
     Genera (o ricarica) la lista di file per train ed eval (80/20).
@@ -229,33 +210,15 @@ def prepare_dataset_splits(images_dir: str, masks_dir: str, split_dir: str, trai
     if not pairs:
         raise FileNotFoundError("Nessuna coppia immagine/maschera valida per creare gli split.")
 
-    #creo liste per gli stem delle immagini e le loro label dominanti
-    images = []
-    dominant_labels = []
-    #per ogni coppia immagine/maschera, aggiungo lo stem dell'immagine e la label dominante della maschera
-    for img_path, mask_path in pairs:
-        images.append(img_path.stem)
-        dominant_labels.append(_dominant_class(mask_path))
+    #creo lista degli stem delle immagini
+    images = [img_path.stem for img_path, _ in pairs]
 
-    #Calcolo lo split test/val stratificando per attributo
-    try:
-        train_ids, eval_ids = train_test_split(
-            images,
-            test_size=1.0 - train_ratio,
-            random_state=seed,
-            stratify=dominant_labels,
-        )
-    #se lo stratify fallisce (a causa per esempio di pochi esempi di una certa label), eseguo lo split senza stratificazione
-    except ValueError:
-        print(
-            "Impossibile stratificare lo split (probabilmente una classe ha troppi pochi campioni). "
-            "Eseguo split senza stratificazione."
-        )
-        train_ids, eval_ids = train_test_split(
-            images,
-            test_size=1.0 - train_ratio,
-            random_state=seed,
-        )
+    #Calcolo lo split train/eval senza stratificazione
+    train_ids, eval_ids = train_test_split(
+        images,
+        test_size=1.0 - train_ratio,
+        random_state=seed,
+    )
 
     #creo la cartella per gli split, e salvo i due file su disco
     split_path.mkdir(parents=True, exist_ok=True)

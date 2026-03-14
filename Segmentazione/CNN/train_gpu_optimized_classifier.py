@@ -45,9 +45,6 @@ USE_GPU = False
 # Numero di trial Optuna per la ricerca iperparametri.
 # Aumenta per tuning migliore (più tempo);
 TRIALS = 75
-# Timeout massimo in secondi per l'ottimizzazione (None = nessun limite).
-# Imposta un valore se vuoi interrompere Optuna dopo N secondi.
-TIMEOUT = None
 
 #funzione che parsa gli argomenti da linea di comando
 def parse_args():
@@ -97,7 +94,6 @@ def main():
     print(f"Uso scala di grigi       : {args.grayscale}")
     print(f"Decoder filters          : {DECODER_FILTERS}")
     print(f"Numero di trial Optuna   : {TRIALS}")
-    print(f"Timeout Optuna (s)       : {TIMEOUT}")
     print(f"Uso GPU                  : {USE_GPU}")
     print(f"Directory immagini       : {IMAGES_DIR}")
     print(f"Directory maschere       : {MASKS_DIR}")
@@ -132,7 +128,7 @@ def main():
         print(f"\nSplit dataset -> Train: {len(train_ids)} immagini, Eval/Test: {len(eval_ids)} immagini")
 
         print("\n1. Caricamento dati (train)...")
-        #carico sol il train set (e applico augmentation e scala di grigi se rischiesto)
+        #carico sol il train set (e applico augmentation, scala di grigi se rischiesto e classw weights)
         model.load_train_data(filenames=train_ids)
 
         print("\n2. Estrazione feature map (train)...")
@@ -162,7 +158,6 @@ def main():
         #avviamo il training del classificatore e gli passiamo l'evaluation set per valutare il migliore, otteniamo la miglior accuracy
         best_accuracy = model.train_classifier_optuna(
             n_trials=TRIALS,
-            timeout=TIMEOUT,
             validation_data=validation_data,
         )
         print(f"Accuracy best trial     : {best_accuracy:.4f}")

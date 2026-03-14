@@ -158,6 +158,31 @@ def tune_classifier(config: "GPUClassifierConfig", pixels_features: np.ndarray, 
                 "eval_set": [(val_features, val_labels)], #set di validazione per early stopping
                 "callbacks": [lgb.early_stopping(20), lgb.log_evaluation(0)], #early stopping e rimuove logs
                 "sample_weight": pixels_weights, #pesi di ogni pixel
+                #TODO: GIOCA CON LA LOSS FUNCTION PER DARE PRIORITà A CLASSE PICCOLE (io ho usato la multi-class log loss, o mlogloss)
+                #prova: focal loss, prova weighted log loss
+                #per i pesi del sample ho usato "sample_weight=pixels_weights" prova a cambiare che tipo di sample weight
+                #LEGGITI LETTERATURA SUI PESI
+
+                #--------------------------------
+                #NO CLASS WEIGHTS SU IMMAGINE DOMINANTE, TOGLILO è UNA CAGATA <------FATTO
+                #--------------------------------
+
+                #TESI:
+                #BUTTA GIU TESTO SU METODOLOGIA DI COSA HAI FATTO (SALTA INTRODUZIONE, PARTIAMO DA METà)
+                #NON SCRIVERE PIU DI 5/6 PAGINE
+
+                #UNA PARTE DA: UNA PAGINA MAX-> DOVE DICO COME ORGANIZZATO IL LAVORO: HO FATTO 2 MODELLI:, UNO CON CLASSIFICIAZIONE ed uno su segmetnazione
+                # DUE PAGINE DI CLASSIFICAZIONE: SULLA BASE DEI PARAMETRI DI COTTURA. C'E' UN MODELLO PER OGNI PARAMETRO + QUELLO CHE CLASSIFCIA SUGLI ESPERIMENTI + IL FATTO CHE USO IL VIT e che lo addestri
+                #-Con l'obbiettivo di fare predizione (classificazione) sulla base dei parametri di cottura. spiega che parametri sono, come erano fatti gli esperimenti ed il fatto che ci sia un modello per ciascuno di questi parametri che classifica per quel parametro + quello che classifica sul riconoscere il numero esperimento , dire che l'ha fatto con un vit
+
+
+                #LE ALTRE 3 PAGINE: SU SEGMENTAZIONE. SPIEGARE OBBIETTIVO: SERVIVA PER SUPPORTARE L'ESSERE UMANO A CLASSIFICARLI. scrivere l'APRROCCIO UTILIZZATO -> IL NOSTRO è SUGLI EMBEDDING. prendiamo uno strato DELLA VGG. E SPIEGARE COME FUNZIONA LA SEGMENTAZIONE
+
+               #NON PARLARE DI RISULTATI
+
+                #IN UN MESETTO SCRIVO TUTTO (CONSIDERANDO CHE NEL FRATTEMPO FACCIO ALTRO
+                #RICONTATTALO CON LE PAGINE AD INIZIO GENNAIO O A RIDOSSO DELLE FESTE.
+                #SITO DIR DOVE IN TEORIA C'è SCRITTO COME SCRIVERE TESI
             }
             
             try:

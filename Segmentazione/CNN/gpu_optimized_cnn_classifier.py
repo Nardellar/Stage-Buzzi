@@ -33,6 +33,7 @@ class XGBBoosterWrapper:
         self.num_classes = num_classes
 
     # Predice le classi per un batch di dati.
+    #X: array numpy 2D (num. pixel, num. features per pixel) e' una feature map appiattita
     def predict(self, X: np.ndarray) -> np.ndarray:
         # Converte l'array NumPy con i dati del batch in un DMatrix (formato richiesto da XGBoost).
         dmatrix = xgb.DMatrix(X)
@@ -58,7 +59,7 @@ class GPUClassifierConfig:
     #percorso delle cartelle con immagini e maschere
     images_dir: str = "../images/Immagini"
     masks_dir: str = "../images/Maschere"
-    #dimensione a cui vengono ridimensionate le immagini e maschere prima del pre processing
+    #dimensione a cui vengono ridimensionate le immagini e maschere prima del pre processing (teniamo la dimensione originale dell'immagine)
     image_size: Tuple[int, int] = (1024, 1024)
     #dimensione quadrata della feature map estratta dalla CNN (se None o 0 mantiene la risoluzione originale)
     feature_map_size: Optional[int] = None
@@ -146,7 +147,7 @@ class GPUOptimizedCNNSegmentationClassifier:
             #specifico le immagini che vogliamo caricare (quelle del training)
             image_names=filenames,
         )
-        #rimappo eventuali classi fuori range (es. label 6) su background per allineare a num_classes
+        #rimappo eventuali classi fuori range  su background per allineare a num_classes
         if self.config.num_classes is not None:
             masks = np.where(masks > self.config.num_classes, 0, masks)
 
@@ -363,7 +364,7 @@ class GPUOptimizedCNNSegmentationClassifier:
         #prendiamo il tensore simbolico generato dall'ultimo layer della CNN, cioe' le feature maps (non contiene ancora dati)
         decoder_cnn = cnn_extractor.output
 
-        #-------UPSAMPLING-------
+        #-------DECODER  (UPSAMPLING)-------
         #Il backbone CNN non mantiene la stessa dimensione di ingresso durante l'estrazione delle feature maps, ma anzi le diminuisce
         #e' necessario quindi applicare prima del classificatore un upsampling per ripristinare la dimensione originale 
         #salviamo le dimensioni correnti dell'output  dell'estrattore CNN
@@ -383,7 +384,7 @@ class GPUOptimizedCNNSegmentationClassifier:
             #aggiungo un blocco convoluzionale che affina le faetures prima di applicare upsampling
             #Come numero di filtri usiamo i filtri definiti in config.
             #usaimo filtri 3 x 3, 
-            #padding "same" forza il processo di ocnv a mantenere le dimensioni spaziali ricevute in input
+            #padding "same" forza il processo di conv a mantenere le dimensioni spaziali ricevute in input
             #activation "relu" per introdurre non lienarita' e un attivazione veloce
             decoder_cnn = tf.keras.layers.Conv2D(decoder_filters, kernel_size=3, padding="same", activation="relu")(decoder_cnn)
             
@@ -412,9 +413,9 @@ class GPUOptimizedCNNSegmentationClassifier:
     # Training
     # ------------------------------------------------------------------ #
 
-    def train_classifier_optuna(self, n_trials: int = 20, validation_data: Optional[Tuple[np.ndarray, np.ndarray]] = None, timeout: Optional[int] = None,) -> float:
+    def train_classifier_optuna(self, n_trials: int = 20, validation_data: Optional[Tuple[np.ndarray, np.ndarray]] = None,) -> float:
         """
-        Esegue ottimizzazione Optuna usando il validation set fornito. Se un timeout e' definito, interrompe la ricerca appena scade il tempo
+        Esegue ottimizzazione Optuna usando il validation set fornito.
         """
         #richiama la funzione di tuning (in tuning.py) e otteniamo:
         #best_metric = il risultato migliore ottenuto sulla metrica scelta

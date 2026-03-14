@@ -10,8 +10,8 @@ IMAGE_DIR = "../images/Immagini/"
 MASK_DIR = "../images/Maschere/"
 
 # Seleziona quale coppia immagine/maschera vuoi visualizzare (es. il primo file, il decimo, ecc.)
-FILE_INDEX = 3
-#NON ADDESTRARE LA CLASSE Modifica questo indice per visualizzare file diversi
+FILE_INDEX = 9
+#NON ADDESTRARE LA CLASSE Modifica questo idice per visualizzare file diversi
 
 
 def visualize_single_mask():
@@ -40,8 +40,18 @@ def visualize_single_mask():
 
     # Carica l'immagine e la maschera
     image = cv2.imread(img_path)
+
+    if image is None:
+        print(f"ERRORE: Impossibile caricare l'immagine: {img_path}")
+        print(f"Percorso assoluto tentato: {os.path.abspath(img_path)}")
+        return
+
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)  # Converti per matplotlib
     mask = cv2.imread(mask_path, cv2.IMREAD_UNCHANGED)
+
+    if mask is None:
+        print(f"ERRORE: Impossibile caricare la maschera: {mask_path}")
+        return
 
     print(f"\nVisualizzazione di:")
     print(f"  - Immagine: {image_files[FILE_INDEX]}")

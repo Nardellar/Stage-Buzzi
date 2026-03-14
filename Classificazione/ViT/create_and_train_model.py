@@ -89,13 +89,13 @@ def build_model(num_labels: int, dropout_rate: float = 0.3) -> ViTForImageClassi
     model = ViTForImageClassification.from_pretrained(
         MODEL_NAME,
         num_labels=num_labels,
-        ignore_mismatched_sizes=True, #per permettermi di caricare il ViT anche se chiedo una classificazione a 3 classi e non 768
+        ignore_mismatched_sizes=True, #per permettermi di caricare il ViT anche se chiedo una classificazione a 3 classi e non 768. tanto inseriremo una head personalizzata.
 
     )
 
-    #impostiamo il classificatore custom a 2 layer
+   #salviamo il numero di neuroni dell'embedding nascosto del ViT
     hidden_size = model.config.hidden_size
-     
+    #impostiamo il classificatore custom a 2 layer
     model.classifier = nn.Sequential(
         nn.Dropout(dropout_rate), # quanti neuroni "disattivare"
         nn.Linear(hidden_size, hidden_size // 2), #definisco il numero di neuroni del primo layer di classificazione (riduco la dimedimensione)
@@ -112,26 +112,34 @@ def build_model(num_labels: int, dropout_rate: float = 0.3) -> ViTForImageClassi
     return model
 
 def prepare_datasets(attribute: str, use_grayscale: bool) -> Tuple[torch.utils.data.Dataset, torch.utils.data.Dataset, torch.Tensor, Dict[int, str], Dict[str, int]]:
-    """Carica dataset HuggingFace, aggiunge l'attributo e applica split."""
+    """Carica dataset HuggingFace, aggiunge il valore della classe alle immagini, calcola split e calcola i class weights."""
     # Carichiamo le informazioni sul CSV e otteniamo le mappature per l'attributo scelto.
     classes, class_to_id, id_to_class, experiment_to_class = load_attribute_metadata(attribute)
-
-    #carica il dataset di esperiemnti. rappresentati nella forma:
+    #----------Caricament dataset e aggiunta colonna class_id----------
+    #carica il dataset HF di esperiemnti. rappresentati nella forma:
     # {
     #     "image": file png,
     #     "label": "EXP01", "EXP02", "EXP03", ...
     # }
     dataset = load_dataset("Nardellar/Esperimenti", split="train")
 
-    # Per ogni immagine associa l'ID classe usando le informazioni del CSV.
+    # Per ogni immagine aggiungiamo la colonna "class_id" con l'ID classe usando le informazioni del CSV.
+    #ottenendo il formato
+    # {
+    #     "image": file png,
+    #     "label": "EXP01"/"EXP02"/"EXP03", ...
+    #     "class_id": 0/1/2/.../13, ...
+    # }
     dataset = add_class_id_column(dataset, class_to_id, experiment_to_class)
+
     #Rimuove dal dataset gli esempi a cui non è stata assegnata una classe valida.
     dataset = filter_missing_class(dataset, class_field="class_id")
-    
-    #trasforma la colonna class_id in un oggetto ClassLabel per gestire correttamente la stratificazione
+    #-------------------------------------------------------------
+    #-------------Calcolo split-----------------------------------
+    #trasforma la colonna class_id in un oggetto ClassLabel per gestire correttamente la stratificazione appena dopo
     dataset = dataset.cast_column("class_id", ClassLabel(names=classes))
 
-    #divido il dataset in train 80% e validation 20%, stratificando per class_id
+    #divido il dataset in train 80% e validation 20%, stratificando per class_id (cioe' id valori classe 0->1300, 1->1400, 2->1500)
     split_ds = dataset.train_test_split(test_size=0.2, seed=42, stratify_by_column="class_id")
     #estraggo il train e il validation set dallo split
     train_ds, val_ds = split_ds["train"], split_ds["test"]
@@ -139,10 +147,10 @@ def prepare_datasets(attribute: str, use_grayscale: bool) -> Tuple[torch.utils.d
     # Salvataggio del validation set nella cartella "validation_test_set"  
     # serve per le fase successiva di evaluation.
     val_ds.save_to_disk("validation_test_set")
-
+    #--------------------Calcolo weights-----------------------------------
     #calcola i pesi delle classi per bilanciamento (class Weights)
     #il calcolo è: weight[es: 0] = totale_campioni / (num_classi * num.immagini_classe[es: 0])
-    #con 0 -> 1300 gradi
+    #con 0 id della classe -> 1300 gradi
     images_per_class = Counter(train_ds["class_id"]) #conta quante immagini ci sono per ogni classe nel training set
     total_samples = sum(images_per_class.values())
     num_classes = len(classes)
@@ -154,7 +162,7 @@ def prepare_datasets(attribute: str, use_grayscale: bool) -> Tuple[torch.utils.d
     )
     #converto i pesi in un tensore pytorch
     class_weights = torch.tensor(weights, dtype=torch.float32)
-
+    #-------------------------------------------------------------
     print("\nDistribuzione classi nel train set:")
     for class_id, count in sorted(images_per_class.items()):
         print(f"  - {id_to_class[class_id]}: {count} immagini")
@@ -251,7 +259,7 @@ def main():
     print("ADDESTRAMENTO ViT")
     print(f"Attributo selezionato: {attribute}")
 
-    # 1) Caricamento dataset e trasformazioni
+    # 1) Caricamento dataset e trasformazioni immagini
     train_ds, val_ds, class_weights, id_to_class, class_to_id = prepare_datasets(attribute, args.grayscale)
 
     # 2) Costruzione del modello: backbone ViT congelato + classificatore personalizzato.
@@ -266,7 +274,7 @@ def main():
         output_dir=str(results_dir), #specifica dove salvare i risultati dell'addestramento
         per_device_train_batch_size=16,
         per_device_eval_batch_size=16,
-        num_train_epochs=100, #<- numero di epoche
+        num_train_epochs=2, #<- numero di epoche
         eval_strategy='epoch', #valuta il validation dopo ogni epoca
         save_strategy='epoch', #salva un checkpopoint alla fine di ogni epoca
         save_total_limit=1, # mantiene solo l'ultimo checkpoint
@@ -277,8 +285,8 @@ def main():
         learning_rate=5e-5,
         lr_scheduler_type='reduce_lr_on_plateau',
         lr_scheduler_kwargs={'patience': 7, 'factor': 0.5}, #aspetta 7 epoche prima di dimezzare il LR
-        max_grad_norm=1.0,
-        warmup_steps=100, #numero di step prima che il LR raggiunga il suo valore gradualmente
+        max_grad_norm=1.0, #gradient clipping: tronca il gradiente se supera 1.0 per evitare gradienti massicci
+        warmup_steps=100, #numero di step prima che il LR raggiunga il suo valore definitivo. crescita graduale
         logging_steps=50,
         logging_dir=str(results_dir / 'logs'), #dove salvare i logs
         report_to='tensorboard', #puoi visualizzare i risultati anche su tensorboard con "tensorboard --logdir training_results_temperatura/logs" su terminale
@@ -298,7 +306,7 @@ def main():
         processing_class=processor,
         compute_metrics=compute_metrics, #passiamo la funzione che calcola le metriche (chiamata ad ogni epoca)
         class_weights=class_weights, #pesi per bilanciare le classi
-        label_smoothing=0.1, #preveiene overfitting
+        label_smoothing=0.1, #preveiene overfitting. riduce overconfidence del modello diminuendo di un certo grado la label piu' probabile e distribuendo la probabilita' tolta sulle altre classi. 
     )
     #ferma il training se non migliora dopo 15 epoche
     trainer.add_callback(EarlyStoppingCallback(early_stopping_patience=15))
@@ -330,6 +338,7 @@ def main():
     trainer.train()
 
     # Salva il modello migliore e il processor per riprodurre i preprocessamenti.
+    #salva in output_dir definita negli arguments
     trainer.save_model()
     #salvo il processor del modello per poterlo usare poi in evaluation
     processor.save_pretrained(results_dir)
