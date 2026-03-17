@@ -6,6 +6,7 @@ e abilita l'uso della GPU per XGBoost/LightGBM quando disponibile.
 
 import os
 import pickle
+import time
 from dataclasses import dataclass
 from typing import Dict, Iterable, Optional, Tuple
 
@@ -67,6 +68,10 @@ class GPUClassifierConfig:
     batch_size: int = 2
     #abilita data augmentation
     use_augmentation: bool = True
+    #numero di copie augmentate generate per ogni immagine
+    augmentation_copies: int = 3
+    #profilo augmentation: "standard" o "aggressive"
+    augmentation_profile: str = "aggressive"
     #converte le immagini in scala di grigi prima del preprocessing
     use_grayscale: bool = False
     #limite di pixel campionati per immagine durante l'estrazione delle features
@@ -77,6 +82,8 @@ class GPUClassifierConfig:
     num_classes: int = 5
     #filtri dei blocchi Convoluzionali del decoder che raffinano la feature-map
     decoder_filters: int = 128
+    #se False usa decoder deterministico (solo upsampling/resizing)
+    use_learnable_decoder: bool = False
 
 
 class GPUOptimizedCNNSegmentationClassifier:
@@ -153,7 +160,12 @@ class GPUOptimizedCNNSegmentationClassifier:
 
         #applico l'augmentation se richiesto
         if self.config.use_augmentation:
-            images, masks = augment_dataset(images, masks)
+            images, masks = augment_dataset(
+                images,
+                masks,
+                copies_per_image=self.config.augmentation_copies,
+                profile=self.config.augmentation_profile,
+            )
 
         #salvo le immagini e maschere nella classe (rappresentate come un numpy di dimensione (Num_immagini, altezza, larghezza, 3) per le immagini e (Num_immagini, altezza, larghezza) per le maschere)
         #ogni immagine e' normalizzata in [0,1] e ogni pxel dell'immagine è un vettore RGB (es: [0.5, 0.5, 0.5])
@@ -169,6 +181,44 @@ class GPUOptimizedCNNSegmentationClassifier:
     # ------------------------------------------------------------------ #
     # Feature extraction
     # ------------------------------------------------------------------ #
+
+    @staticmethod
+    def _sample_indices_stratified(
+        labels: np.ndarray,
+        max_samples: int,
+        random_generator: np.random.Generator,
+    ) -> np.ndarray:
+        """Campiona indici mantenendo una quota minima per ogni classe presente."""
+        if len(labels) <= max_samples:
+            return np.arange(len(labels), dtype=np.int64)
+
+        unique_classes = np.unique(labels)
+        n_classes = len(unique_classes)
+        min_per_class = max(1, max_samples // n_classes)
+
+        selected_chunks = []
+        leftovers = []
+
+        for class_id in unique_classes:
+            class_indices = np.flatnonzero(labels == class_id)
+            take = min(min_per_class, len(class_indices))
+            chosen = random_generator.choice(class_indices, size=take, replace=False)
+            selected_chunks.append(chosen)
+            if take < len(class_indices):
+                mask = np.isin(class_indices, chosen, invert=True)
+                leftovers.append(class_indices[mask])
+
+        selected = np.concatenate(selected_chunks)
+        remaining = max_samples - len(selected)
+        if remaining > 0 and leftovers:
+            leftover_pool = np.concatenate(leftovers)
+            if len(leftover_pool) > remaining:
+                extra = random_generator.choice(leftover_pool, size=remaining, replace=False)
+            else:
+                extra = leftover_pool
+            selected = np.concatenate([selected, extra])
+
+        return selected
 
     def _compute_features(self, images: np.ndarray, masks: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         """Estrae feature spaziali prodotte dalla CNN."""
@@ -186,6 +236,9 @@ class GPUOptimizedCNNSegmentationClassifier:
         #inizializziamo liste per salvare le features e labels estratte
         features = []
         labels = [] #contiene i numeri di classe per ogni pixel (da 0 a 4)
+        total_images = len(images)
+        start_time = time.perf_counter()
+        print(f"[Feature Extraction] Inizio su {total_images} immagini (batch_size={self.config.batch_size})", flush=True)
         #generatore di numeri casuali (usato piu' avanti per il batch downsampling). impostato ad un seed fisso per riproducibilità
         random_generator = np.random.default_rng(seed=42) 
         #per ogni batch del totale di immagini:
@@ -240,14 +293,11 @@ class GPUOptimizedCNNSegmentationClassifier:
                     and len(label_filtered) > self.config.max_pixels_per_image
                 ):  #allora campioniamo un sottoinsieme di pixel per mantenere il numero di pixel entro il limite impostato
                     
-                    #Campiono casualmente alcuni pixel
-                    sample_indeces = random_generator.choice(
-                        #numero di pixel da cui scegliere
-                        len(label_filtered),
-                        #numero di pixel da scegliere
-                        size=self.config.max_pixels_per_image,
-                        #non ripetiamo pixel già campionati
-                        replace=False,
+                    # Campionamento stratificato: preserva la presenza delle classi rare
+                    sample_indeces = self._sample_indices_stratified(
+                        labels=label_filtered,
+                        max_samples=self.config.max_pixels_per_image,
+                        random_generator=random_generator,
                     )
                     #prendo solo le features e le label dei pixel campionati
                     filtered_features = filtered_features[sample_indeces]
@@ -255,6 +305,14 @@ class GPUOptimizedCNNSegmentationClassifier:
 
                 features.append(filtered_features)
                 labels.append(label_filtered)
+
+            processed = min(n_batch + len(batch_imgs), total_images)
+            elapsed = time.perf_counter() - start_time
+            print(
+                f"[Feature Extraction] {processed}/{total_images} immagini processate "
+                f"({elapsed:.1f}s)",
+                flush=True,
+            )
 
         if not features:
             raise ValueError("Nessuna feature valida estratta.")
@@ -360,6 +418,7 @@ class GPUOptimizedCNNSegmentationClassifier:
         
         #memorizziamo quanti filtri usera' il decoder
         decoder_filters = self.config.decoder_filters
+        use_learnable_decoder = getattr(self.config, "use_learnable_decoder", False)
 
         #prendiamo il tensore simbolico generato dall'ultimo layer della CNN, cioe' le feature maps (non contiene ancora dati)
         decoder_cnn = cnn_extractor.output
@@ -379,30 +438,32 @@ class GPUOptimizedCNNSegmentationClassifier:
         current_w = int(current_w)
 
         #Costruiamo ora il decoder per la CNN
-        #applico upsampling + convoluzione fino a quando la dimensione delle feature maps non e' uguale o maggiore a quella target
+        #default: upsampling deterministico per evitare rumore da conv random non addestrate
         while (current_h < target_h) or (current_w < target_w):
-            #aggiungo un blocco convoluzionale che affina le faetures prima di applicare upsampling
-            #Come numero di filtri usiamo i filtri definiti in config.
-            #usaimo filtri 3 x 3, 
-            #padding "same" forza il processo di conv a mantenere le dimensioni spaziali ricevute in input
-            #activation "relu" per introdurre non lienarita' e un attivazione veloce
-            decoder_cnn = tf.keras.layers.Conv2D(decoder_filters, kernel_size=3, padding="same", activation="relu")(decoder_cnn)
-            
-            #applico upsampling
-            #size: raddoppiamo sia altezza che larghezza delle feature map
-            #interpolation: "bilinear" per "riempire" i nuovi pixel -> le feature dei nuovi pixel sono la media pesata dei 4 pixel vicini.
-            # per interpolazione: bilineare 
+            if use_learnable_decoder:
+                decoder_cnn = tf.keras.layers.Conv2D(
+                    decoder_filters,
+                    kernel_size=3,
+                    padding="same",
+                    activation="relu",
+                )(decoder_cnn)
             decoder_cnn = tf.keras.layers.UpSampling2D(size=(2, 2), interpolation="bilinear")(decoder_cnn)
-            
-            #aggiorno a che dimensioni siamo per mantenenre il ciclo while
             current_h *= 2
             current_w *= 2
 
-        #riapplichiamo un ultima convoluzione standard per ricombinare l'informazione contenstuale persa durante l'ultima interpolazione
-        decoder_cnn = tf.keras.layers.Conv2D(decoder_filters, kernel_size=3, padding="same", activation="relu")(decoder_cnn)
-        
-        #applichiamo una convoluzione finale con meta' dei filtri per comprimere le features in un numero di canali piu gestibile al classificatore
-        decoder_cnn = tf.keras.layers.Conv2D(decoder_filters // 2, kernel_size=3, padding="same", activation="relu")(decoder_cnn)
+        if use_learnable_decoder:
+            decoder_cnn = tf.keras.layers.Conv2D(
+                decoder_filters,
+                kernel_size=3,
+                padding="same",
+                activation="relu",
+            )(decoder_cnn)
+            decoder_cnn = tf.keras.layers.Conv2D(
+                decoder_filters // 2,
+                kernel_size=3,
+                padding="same",
+                activation="relu",
+            )(decoder_cnn)
 
         #applichaimo una rifinitura con un resize finale alla dimensione esplcitiamente richiesta nel caso le feature maps siano leggermente piu grandi delle misure desiderate
         resized = tf.keras.layers.Resizing(target_h,target_w,interpolation="bilinear",name="feature_resizer",)(decoder_cnn)
@@ -437,7 +498,7 @@ class GPUOptimizedCNNSegmentationClassifier:
         self.best_num_boost_round = best_iteration
 
         print(f"Migliori parametri: {self.best_params}")
-        print(f"Migliore accuracy (val): {best_metric:.4f}")
+        print(f"Migliore F1 macro (val): {best_metric:.4f}")
 
         return best_metric
 

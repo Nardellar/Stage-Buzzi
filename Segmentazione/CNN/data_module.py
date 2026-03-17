@@ -8,6 +8,7 @@ import glob
 import os
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple, Set
+import warnings
 
 import albumentations as A
 import cv2
@@ -111,22 +112,71 @@ def load_dataset_stateless(
     return images_np, masks_np
 
 
-def augment_dataset(images: np.ndarray,masks: np.ndarray,) -> Tuple[np.ndarray, np.ndarray]:
+def augment_dataset(
+    images: np.ndarray,
+    masks: np.ndarray,
+    copies_per_image: int = 1,
+    profile: str = "standard",
+) -> Tuple[np.ndarray, np.ndarray]:
     """
-    Applica una semplice augmentazione duplicando ogni esempio con trasformazioni casuali.
+    Applica augmentazione al dataset generando piu' copie sintetiche per ogni immagine.
     """
-    transform = A.Compose(
-        [
-            A.HorizontalFlip(p=0.5), #flip orizzontale con probabilita' 50%
-            A.VerticalFlip(p=0.5), #flip verticale con probabilita' 50%
-            A.RandomRotate90(p=0.5), #ruota di 90 gradi con probabilita' 50%
-            A.ShiftScaleRotate(
-                shift_limit=0.05, scale_limit=0.05, rotate_limit=15, p=0.5), #trasla, scala e ruota con probabilita' 50% (shift_limit: limite di traslazione, scale_limit: limite di scala, rotate_limit: limite di rotazione)
-            A.RandomBrightnessContrast(
-                brightness_limit=0.15, contrast_limit=0.15, p=0.5
-            ), #cambia la luminosita' e il contrasto con probabilita' 50%
-        ]
-    )
+    if copies_per_image < 1:
+        raise ValueError("copies_per_image deve essere >= 1")
+
+    if profile == "aggressive":
+        transform = A.Compose(
+            [
+                A.HorizontalFlip(p=0.5),
+                A.VerticalFlip(p=0.3),
+                A.RandomRotate90(p=0.5),
+                A.Affine(
+                    translate_percent={"x": (-0.08, 0.08), "y": (-0.08, 0.08)},
+                    scale=(0.88, 1.12),
+                    rotate=(-25, 25),
+                    mode=cv2.BORDER_REFLECT_101,
+                    p=0.75,
+                ),
+                A.OneOf(
+                    [
+                        A.ElasticTransform(p=1.0),
+                        A.GridDistortion(p=1.0),
+                    ],
+                    p=0.35,
+                ),
+                A.OneOf(
+                    [
+                        A.CLAHE(clip_limit=4.0, tile_grid_size=(8, 8), p=1.0),
+                        A.RandomBrightnessContrast(
+                            brightness_limit=0.25,
+                            contrast_limit=0.25,
+                            p=1.0,
+                        ),
+                    ],
+                    p=0.45,
+                ),
+                A.GaussNoise(p=0.25),
+            ]
+        )
+    else:
+        transform = A.Compose(
+            [
+                A.HorizontalFlip(p=0.5),
+                A.VerticalFlip(p=0.5),
+                A.RandomRotate90(p=0.5),
+                A.Affine(
+                    translate_percent={"x": (-0.05, 0.05), "y": (-0.05, 0.05)},
+                    scale=(0.95, 1.05),
+                    rotate=(-15, 15),
+                    p=0.5,
+                ),
+                A.RandomBrightnessContrast(
+                    brightness_limit=0.15,
+                    contrast_limit=0.15,
+                    p=0.5,
+                ),
+            ]
+        )
     #liste di accumulo di immagini/maschere originali + augmentate
     augmented_images = []
     augmented_masks = []
@@ -135,9 +185,10 @@ def augment_dataset(images: np.ndarray,masks: np.ndarray,) -> Tuple[np.ndarray, 
         augmented_images.append(img)
         augmented_masks.append(mask)
 
-        aug = transform(image=img, mask=mask)
-        augmented_images.append(aug["image"])
-        augmented_masks.append(aug["mask"])
+        for _ in range(copies_per_image):
+            aug = transform(image=img, mask=mask)
+            augmented_images.append(aug["image"])
+            augmented_masks.append(aug["mask"])
 
     return np.asarray(augmented_images), np.asarray(augmented_masks)
 
@@ -153,6 +204,10 @@ def compute_class_weights_dict(masks: np.ndarray, num_classes: int,) -> Optional
 
     #trovo le classi uniche presenti nelle maschere
     unique_labels = np.unique(labels)
+    if unique_labels.size == 0:
+        # Tutto background: manteniamo pesi uniformi per evitare crash nel tuning.
+        return {class_id: 1.0 for class_id in range(num_classes)}
+
     #calcolo i pesi bilanciati per ogni classe
     weights = compute_class_weight("balanced", classes=unique_labels, y=labels)
     #verifichiamo che tutte le classi presenti siano nel range previsto
@@ -165,6 +220,10 @@ def compute_class_weights_dict(masks: np.ndarray, num_classes: int,) -> Optional
 
     #creiamo il dizionario "label": "peso label"
     weights_dict = dict(zip(unique_labels.tolist(), weights.tolist()))
+    #assicuro un peso per ogni classe nel range previsto
+    default_weight = max(weights_dict.values()) if weights_dict else 1.0
+    for class_id in range(num_classes):
+        weights_dict.setdefault(class_id, default_weight)
     #converto il dizionario in un dizionario di tipo int: float (per sicurezza do' dati di tipi nativi python al booster)
     return {int(label): float(weight) for label, weight in weights_dict.items()}
 
@@ -185,7 +244,13 @@ def _match_image_mask_pairs(images_dir: str, masks_dir: str) -> List[Tuple[Path,
             pairs.append((img_path, mask_path))
     return pairs
 
-def prepare_dataset_splits(images_dir: str, masks_dir: str, split_dir: str, train_ratio: float = 0.8, seed: int = 42,) -> Tuple[List[str], List[str]]:
+def prepare_dataset_splits(
+    images_dir: str,
+    masks_dir: str,
+    split_dir: str,
+    train_ratio: float = 0.8,
+    seed: int = 42,
+) -> Tuple[List[str], List[str]]:
     """
     Genera (o ricarica) la lista di file per train ed eval (80/20).
     L'eval set viene usato sia come validation che come test.
@@ -194,14 +259,6 @@ def prepare_dataset_splits(images_dir: str, masks_dir: str, split_dir: str, trai
     split_path = Path(split_dir)
     train_file = split_path / "train.txt"
     eval_file = split_path / "eval.txt"
-
-    #se gli split sono stati gia' generati in passato, li leggiamo e li riusiamo
-    if train_file.exists() and eval_file.exists():
-        #leggo i file e rimuovo spazi bianchi e righe vuote
-        train_ids = [line.strip() for line in train_file.read_text().splitlines() if line.strip()]
-        eval_ids = [line.strip() for line in eval_file.read_text().splitlines() if line.strip()]
-        if train_ids and eval_ids:
-            return train_ids, eval_ids
 
     if not (0.0 < train_ratio < 1.0):
         raise ValueError("train_ratio deve essere compreso tra 0 e 1 (esclusi).")
@@ -212,6 +269,27 @@ def prepare_dataset_splits(images_dir: str, masks_dir: str, split_dir: str, trai
 
     #creo lista degli stem delle immagini
     images = [img_path.stem for img_path, _ in pairs]
+    available_ids = set(images)
+
+    #se gli split sono stati gia' generati in passato, li leggiamo e li riusiamo
+    if train_file.exists() and eval_file.exists():
+        train_ids = [line.strip() for line in train_file.read_text().splitlines() if line.strip()]
+        eval_ids = [line.strip() for line in eval_file.read_text().splitlines() if line.strip()]
+
+        ids_ok = (
+            bool(train_ids)
+            and bool(eval_ids)
+            and set(train_ids).isdisjoint(set(eval_ids))
+            and set(train_ids).issubset(available_ids)
+            and set(eval_ids).issubset(available_ids)
+        )
+        if ids_ok:
+            return train_ids, eval_ids
+
+        warnings.warn(
+            "Split train/eval trovati ma vuoti o incoerenti con il dataset corrente. Rigenero gli split.",
+            RuntimeWarning,
+        )
 
     #Calcolo lo split train/eval senza stratificazione
     train_ids, eval_ids = train_test_split(
@@ -222,10 +300,10 @@ def prepare_dataset_splits(images_dir: str, masks_dir: str, split_dir: str, trai
 
     #creo la cartella per gli split, e salvo i due file su disco
     split_path.mkdir(parents=True, exist_ok=True)
-    train_file.write_text("\n".join(train_ids))
-    eval_file.write_text("\n".join(eval_ids))
+    train_file.write_text("\n".join(sorted(train_ids)))
+    eval_file.write_text("\n".join(sorted(eval_ids)))
     #restituisco gli split calcolati
-    return train_ids, eval_ids
+    return sorted(train_ids), sorted(eval_ids)
 
 
 __all__ = [

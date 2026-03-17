@@ -10,8 +10,7 @@ import lightgbm as lgb
 import numpy as np
 import optuna
 import xgboost as xgb
-from sklearn.metrics import accuracy_score, f1_score
-from sklearn.model_selection import train_test_split
+from sklearn.metrics import f1_score
 
 if TYPE_CHECKING:
     from gpu_optimized_cnn_classifier import GPUClassifierConfig
@@ -208,7 +207,8 @@ def tune_classifier(config: "GPUClassifierConfig", pixels_features: np.ndarray, 
             #salvo il classificatore addestrato come attriubto del trial (cosi' possiamo recuperalrlo alla fine se si rivelasse il modello migliore)
             trial.set_user_attr("estimator", classifier)
             #salviamo la best_iteration_ se disponibile per riutilizzarla nel training finale
-            trial.set_user_attr("best_iteration", int(classifier.best_iteration_))
+            best_iter = getattr(classifier, "best_iteration_", None)
+            trial.set_user_attr("best_iteration", int(best_iter) if best_iter is not None else None)
         
         #se il classificatroe scelto è XGBoost:
         else:
@@ -263,7 +263,7 @@ def tune_classifier(config: "GPUClassifierConfig", pixels_features: np.ndarray, 
             #Salvo il booster addestrato come attriubto del trial (cosi' possiamo recuperalrlo dopo il tuning se si rivelasse il modello migliore)
             trial.set_user_attr("estimator", trained_booster)
             #salvo l'iterazione migliore come attributo del trial
-            trial.set_user_attr("best_iteration", int(best_iteration)) 
+            trial.set_user_attr("best_iteration", int(best_iteration) if best_iteration is not None else None)
             #calcolo le predizioni del booster addestrato sul set di validazione
             preds_raw = trained_booster.predict(val_dMatrix)
             #converto le predizioni probabilistiche di ogni classe in un array che salva solo la classe piu' probabile (es: [[0.1, 0.3, 0.6], [0.8, 0.1, 0.1], ...] -> [2, 0, 1, ...])
@@ -286,77 +286,17 @@ def tune_classifier(config: "GPUClassifierConfig", pixels_features: np.ndarray, 
     stored_estimator = best_trial.user_attrs.get("estimator")
     best_iteration = best_trial.user_attrs.get("best_iteration")
 
-    #se il classificatore scelto e' lightbgm
+    if stored_estimator is None:
+        raise RuntimeError("Il best trial non contiene un estimatore addestrato.")
+
+    # Riusa il modello addestrato nel best trial per non perdere l'early stopping.
     if config.classifier == "lightgbm":
-        #copiamo i parametri ottimizzati del trial
-        final_params = best_params.copy()
-        #usa la best_iteration del trial per fissare n_estimators
-        final_params["n_estimators"] = int(best_iteration) + 1
-        #aggiungiamo i parametri per creare il modello finale
-        final_params.update(
-            {
-                "boosting_type": "gbdt", #algortimo di boositng usato
-                "objective": "multiclass",
-                "num_class": config.num_classes,
-                "verbosity": -1,
-                "random_state": 42,
-            }
-        )
-        #creaimo il classificatore con i parametri finali (parametri adeestramento + configurazioni)
-        classifier = lgb.LGBMClassifier(**final_params)
-        #calcoliamo il peso di ogni pixel e lo salviamo
-        pixels_weights = calculate_pixels_weights(pixels_labels, class_weights)
-        #addestriamo il classificatore su tutti i dati del train set
-        classifier.fit(X=pixels_features, y=pixels_labels, sample_weight=pixels_weights)
-        #salviamo il numero di estimaotrs "migliore"
-        final_iteration = final_params.get("n_estimators")
+        classifier = stored_estimator
     else:
-        #se usiamo XGBoost:
-        
-        #converte i migliori parametri trovati nei trials nel formato per xgb.train()
-        train_params = _build_xgb_train_params(best_params.copy(), config)
-        #determiniamo il numero migliore di iterazioni di boosting per train finale
-        num_boost_round = int(best_iteration) + 1
-        #creo la struttura dati (DMatrix) usata da XGBoost per il training
-       
-        train_dMatrix = xgb.DMatrix(
-            data = pixels_features,
-            label = pixels_labels,
-            weight = calculate_pixels_weights(pixels_labels, class_weights),
-        )
-        try:
-            #addestriamo il modello finale su tutti i dati di training
-            trained_booster = xgb.train(
-                params=train_params,  # iperparametri ottimizzati da Optuna e configurazione GPU/CPU
-                dtrain=train_dMatrix,  # dati di training (features, labels, pesi)
-                num_boost_round=num_boost_round,  # numero di iterazioni di boosting (best_iteration + 1)
-                verbose_eval=False,  # log disabilitati
-            )
-        #se l'addestramento fallisce: (es: OOM della GPU) ritento il train finale con CPU
-        except xgb.core.XGBoostError as ex:
-            if config.use_gpu:
-                warnings.warn(
-                    f"XGBoost GPU non disponibile per il training finale ({ex}). Riprovo in CPU.",
-                    RuntimeWarning,
-                )
-                cpu_params = train_params.copy()
-                cpu_params["tree_method"] = "hist"
-                cpu_params.pop("predictor", None)
-                cpu_params.pop("device", None)
-                trained_booster = xgb.train(
-                    params=cpu_params,
-                    dtrain=train_dMatrix,
-                    num_boost_round=num_boost_round,
-                    verbose_eval=False,
-                )
-            else:
-                raise
-        # Import locale per evitare import circolare (gpu_optimized_cnn_classifier importa tune_classifier)
         from gpu_optimized_cnn_classifier import XGBBoosterWrapper
-        #creo un wrapper che rende il classificatore finale compatibile allinterfaccia skleran (metodo predict() ) 
-        classifier = XGBBoosterWrapper(trained_booster, config.num_classes)
-        #numero di iterazioni usate per salvare il modello finale (basate sul numero di iterazioni del trail migliore) -> evita overfitting
-        final_iteration = num_boost_round
+        classifier = XGBBoosterWrapper(stored_estimator, config.num_classes)
+
+    final_iteration = int(best_iteration) + 1 if best_iteration is not None else None
 
     #restituiamo f1 macro, il classifciatore, i migliori parametri trovati ed il numero di iterazioni
     return best_value, classifier, best_params, final_iteration

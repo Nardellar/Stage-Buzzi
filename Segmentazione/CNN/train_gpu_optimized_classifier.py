@@ -42,6 +42,12 @@ DECODER_FILTERS = 128
 CLASSIFIER_TYPE = "xgboost"
 # Se True usa versioni GPU dei booster (quando disponibili);
 USE_GPU = False
+# Numero di copie augmentate generate per ogni immagine (3-5 consigliato)
+AUGMENTATION_COPIES = 3
+# Profilo augmentation da usare: "standard" o "aggressive"
+AUGMENTATION_PROFILE = "aggressive"
+# Se True abilita conv learnable nel decoder; False usa upsampling deterministico
+USE_LEARNABLE_DECODER = False
 # Numero di trial Optuna per la ricerca iperparametri.
 # Aumenta per tuning migliore (più tempo);
 TRIALS = 75
@@ -93,6 +99,9 @@ def main():
     print(f"Max pixel per immagine   : {max_pixels_desc}")
     print(f"Uso scala di grigi       : {args.grayscale}")
     print(f"Decoder filters          : {DECODER_FILTERS}")
+    print(f"Augmentation copies      : {AUGMENTATION_COPIES}")
+    print(f"Augmentation profile     : {AUGMENTATION_PROFILE}")
+    print(f"Learnable decoder        : {USE_LEARNABLE_DECODER}")
     print(f"Numero di trial Optuna   : {TRIALS}")
     print(f"Uso GPU                  : {USE_GPU}")
     print(f"Directory immagini       : {IMAGES_DIR}")
@@ -111,6 +120,9 @@ def main():
         masks_dir=str(MASKS_DIR),
         decoder_filters=DECODER_FILTERS,
         use_grayscale=args.grayscale,
+        augmentation_copies=AUGMENTATION_COPIES,
+        augmentation_profile=AUGMENTATION_PROFILE,
+        use_learnable_decoder=USE_LEARNABLE_DECODER,
     )
 
     #creo instanzio il modello con la configurazione appena creata
@@ -136,7 +148,7 @@ def main():
         model.extract_train_features()
         print(f"Feature train estratte   : {model.pixels_features.shape}")
 
-        #carico il set di validazione e applico scala di grigi se richiesto (senza augmentantion)
+        #carico il set di evaluation (usato anche come validation) e applico scala di grigi se richiesto (senza augmentantion)
         val_images, val_masks = load_dataset_stateless(
         images_dir=str(IMAGES_DIR),
         masks_dir=str(MASKS_DIR),
@@ -144,7 +156,7 @@ def main():
         use_grayscale=config.use_grayscale,
         image_names=eval_ids,
         )
-        #calcoliamo features e label per ogni pixel valido (non appartennti allo sfondo) di ogni immagine del validation set
+        #calcoliamo features e label per ogni pixel valido (non appartennti allo sfondo) di ogni immagine del set evaluation
         validation_data = model.extract_features_stateless(
             val_images,
             val_masks,
@@ -155,12 +167,12 @@ def main():
         model.release_feature_extractor()
 
         print("\n3. Training classificatore con Optuna...")
-        #avviamo il training del classificatore e gli passiamo l'evaluation set per valutare il migliore, otteniamo la miglior accuracy
-        best_accuracy = model.train_classifier_optuna(
+        #avviamo il training del classificatore e gli passiamo il set evaluation
+        best_f1 = model.train_classifier_optuna(
             n_trials=TRIALS,
             validation_data=validation_data,
         )
-        print(f"Accuracy best trial     : {best_accuracy:.4f}")
+        print(f"F1 macro best trial     : {best_f1:.4f}")
 
         print("\n4. Salvataggio modello...")
         model.save(str(MODEL_OUTPUT_PREFIX))

@@ -4,7 +4,7 @@ Riproduce le stesse trasformazioni del confronto:
  - caricamento dataset
  - inferenza CNN + classificatore
  - raffinamento DenseCRF
- - metriche (accuracy, confusion matrix)
+ - metriche (accuracy, F1 macro/per classe, balanced accuracy, IoU, confusion matrix)
  - salvataggio anteprima con GT e maschera predetta
 """
 
@@ -21,7 +21,13 @@ import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib import colors
-from sklearn.metrics import accuracy_score, confusion_matrix
+from sklearn.metrics import (
+    accuracy_score,
+    balanced_accuracy_score,
+    confusion_matrix,
+    f1_score,
+    jaccard_score,
+)
 
 import pydensecrf.densecrf as dcrf
 from pydensecrf.utils import (
@@ -227,10 +233,35 @@ def evaluate_gpu_model(model, dataset: Dict[str, np.ndarray],) -> Dict:
                 }
             )
 
-    #calcolo accuracy modello tra pixel maschera ground truth e predizione del modello (solo sui pixel validi)
-    accuracy = accuracy_score(ground_truth, predictions) 
+    if not predictions:
+        raise ValueError("Nessun pixel valido trovato nel test set (tutte le maschere sono background).")
+
+    labels = list(range(len(CLASS_NAMES)))
+    # Metriche pixel-level sul solo test set
+    accuracy = accuracy_score(ground_truth, predictions)
+    balanced_accuracy = balanced_accuracy_score(ground_truth, predictions)
+    f1_macro = f1_score(ground_truth, predictions, average="macro", zero_division=0)
+    f1_per_class = f1_score(
+        ground_truth,
+        predictions,
+        labels=labels,
+        average=None,
+        zero_division=0,
+    )
+    iou_per_class = jaccard_score(
+        ground_truth,
+        predictions,
+        labels=labels,
+        average=None,
+        zero_division=0,
+    )
+
     return {
         "accuracy": accuracy,
+        "balanced_accuracy": balanced_accuracy,
+        "f1_macro": f1_macro,
+        "f1_per_class": np.asarray(f1_per_class, dtype=float),
+        "iou_per_class": np.asarray(iou_per_class, dtype=float),
         "predictions": np.asarray(predictions, dtype=int),
         "ground_truth": np.asarray(ground_truth, dtype=int),
         "previews": previews,
@@ -393,8 +424,7 @@ def main():
     model = GPUOptimizedCNNSegmentationClassifier()
     #carico il modello addestrato (sia il file keras (CNN + decoder) che il file pkl (classificatore))
     model.load(str(model_path))
-    #genero o carico gli split del dataset per ottenere gli ID delle immagini di evaluation 
-    # (ovviamente ache se vengono rigenerati gli split, sono gli stessi del training)
+    #genero o carico gli split del dataset per ottenere gli ID di evaluation
     _, eval_ids = prepare_dataset_splits(
         images_dir=str(IMAGES_DIR),
         masks_dir=str(MASKS_DIR),
@@ -408,7 +438,7 @@ def main():
         masks_dir=str(MASKS_DIR),
         image_size=tuple(model.config.image_size), #usa come dimensione quella salvata nel modello
         use_grayscale=getattr(model.config, "use_grayscale", False), #attivo la conversione in scala di grigi se è presente nel modello
-        image_names=eval_ids, #carico solo le immagini di evaluation (ottenuto prima da prepare_dataset_splits)
+        image_names=eval_ids, #carico solo le immagini di evaluation
         return_paths=True, #restituisce anche i percorsi delle immagini (ci servono poi per la generazione dell'immagine di anteprima)
     )
     dataset = {
@@ -420,9 +450,21 @@ def main():
     #valuto il modello sul set di evaluation
     results = evaluate_gpu_model(model, dataset)
 
-    #prendo e stampo l'accuracy del modello sul test set
     accuracy = results["accuracy"]
+    balanced_accuracy = results["balanced_accuracy"]
+    f1_macro = results["f1_macro"]
+    f1_per_class = results["f1_per_class"]
+    iou_per_class = results["iou_per_class"]
+
     print(f"\nAccuracy pixel (post-CRF): {accuracy:.4f}")
+    print(f"Balanced accuracy        : {balanced_accuracy:.4f}")
+    print(f"F1 macro                : {f1_macro:.4f}")
+    print("F1 per classe:")
+    for class_name, score in zip(CLASS_NAMES, f1_per_class):
+        print(f"  - {class_name:<20} {score:.4f}")
+    print("IoU per classe:")
+    for class_name, score in zip(CLASS_NAMES, iou_per_class):
+        print(f"  - {class_name:<20} {score:.4f}")
 
     #calcolo la matrice di confusione
     cm = confusion_matrix(
