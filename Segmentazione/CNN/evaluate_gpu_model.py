@@ -4,7 +4,7 @@ Riproduce le stesse trasformazioni del confronto:
  - caricamento dataset
  - inferenza CNN + classificatore
  - raffinamento DenseCRF
- - metriche (accuracy, F1 macro/per classe, balanced accuracy, IoU, confusion matrix)
+ - metriche (accuracy, balanced accuracy, mIoU, IoU per classe, confusion matrix)
  - salvataggio anteprima con GT e maschera predetta
 """
 
@@ -25,7 +25,6 @@ from sklearn.metrics import (
     accuracy_score,
     balanced_accuracy_score,
     confusion_matrix,
-    f1_score,
     jaccard_score,
 )
 
@@ -50,18 +49,20 @@ CONFUSION_PATH = BASE_DIR / "gpu_confusion_matrix.png"
 #Percorso della cartella contenente gli split del dataset.
 SPLIT_DIR = (BASE_DIR / "splits").resolve()
 #Nomi delle classi da classificare.
-CLASS_NAMES = ["Resina", "Pori/Imperfezioni", "Fase Fusa", "Belite", "Alite"]
+CLASS_NAMES = ["Resina", "Pori/Imperfezioni", "Fase Fusa", "Belite", "Alite", "Calce libera"]
 
 
-def apply_dense_crf(image: np.ndarray, predicted_mask: np.ndarray, num_classes: int) -> np.ndarray:
+def apply_dense_crf(image: np.ndarray, predicted_mask: np.ndarray, num_classes: int, temperature: float = 3.0) -> np.ndarray:
     """
     Applica il DenseCRF per raffinare le predizioni del modello.
     Args:
         image: Immagine in formato uint8 (0-255) con dimensioni (altezza, larghezza, 3)
-         predicted_mask: Maschera predetta dal modello in formato float (probabilità per classe) con dimensioni (altezza, larghezza, num_classi)
-        num_classes: Numero di classi da classificare (5)
+        predicted_mask: Maschera predetta dal modello in formato float (probabilità per classe) con dimensioni (altezza, larghezza, num_classi)
+        num_classes: Numero di classi da classificare
+        temperature: Temperature scaling (T > 1 addolcisce le probabilità troppo "dure" del classificatore,
+                     dando al CRF più margine per modificare la predizione tramite i vincoli spaziali)
     Returns:
-        Maschera raffinata in formato int32 (0-6)
+        Maschera raffinata in formato int32 (0-N)
     """
     # DenseCRF richiede array C-contigui; li forziamo per evitare errori di memoryview
     image = np.ascontiguousarray(image)
@@ -70,6 +71,14 @@ def apply_dense_crf(image: np.ndarray, predicted_mask: np.ndarray, num_classes: 
     height, width = image.shape[:2]
     #creo un oggetto DenseCRF2D con le dimensioni dell'immagine e il numero di classi
     crf = dcrf.DenseCRF2D(width, height, num_classes)
+
+    #Temperature Scaling: XGBoost produce probabilità quasi binarie (es: [0.0, 0.0, 0.99, 0.0, 0.01, 0.0])
+    #che generano energie unarie enormi (-log(0.99)≈0.01 vs -log(0.01)≈4.6), schiacciando i termini pairwise.
+    #Eleviamo a 1/T per "addolcire" la distribuzione (es: T=2 trasforma [0.01, 0.99] in ~[0.1, 0.9]),
+    #così il CRF ha margine per correggere le predizioni usando il contesto spaziale e cromatico.
+    if temperature != 1.0:
+        predicted_mask = np.power(np.clip(predicted_mask, 1e-6, 1.0), 1.0 / temperature)
+        predicted_mask /= predicted_mask.sum(axis=-1, keepdims=True)
 
     #pixels_prob_label qui rappresenta le probabilità per pixel nella matrice (altezza, larghezza, num_classi)
     #clipping per limitare le probabilita' ad un range di valori valido (evita valori negativi, zero o > 1)
@@ -99,8 +108,10 @@ def apply_dense_crf(image: np.ndarray, predicted_mask: np.ndarray, num_classes: 
     #(non cosnidera il colore, solo la posizione X;Y nello spazio)
     gaussian_energy = create_pairwise_gaussian(sdims=(3, 3), shape=image.shape[:2])
     #imposto l'energia a coppie gaussiane nel CRF.
-    # compat (indice di compatibilita'): e' una costante moltiplicativa che imposta l'ifluenza sul costo finale del vincolo di vicinanza spaziale rispetto al vincolo di predizione locale
-    crf.addPairwiseEnergy(gaussian_energy, compat=3)
+    # compat (indice di compatibilita'): e' una costante moltiplicativa che imposta l'influenza sul costo finale del vincolo di vicinanza spaziale rispetto al vincolo di predizione locale
+    # Aumentato da 3 a 10: con le probabilita' addolcite dal temperature scaling, il termine spaziale
+    # ha ora abbastanza peso per forzare coerenza tra pixel adiacenti (smoothing del rumore)
+    crf.addPairwiseEnergy(gaussian_energy, compat=10)
 
     #calcolo l'energia bilaterale.  obbiettivo --> affinare i contorni
     # funziona come l'energia gaussiana, ma oltre alla posizione tiene conto anche dei colori --> l'energia bilaterale penalizza il crf se assegna a 2 pixel vicini, e con stesso colore classi diverse.
@@ -111,21 +122,26 @@ def apply_dense_crf(image: np.ndarray, predicted_mask: np.ndarray, num_classes: 
     #   img: immagine in input
     #   chdim: indica in che asse di dimensione di "img" si trovino i canali di colore (2 = RGB)
     bilateral_energy = create_pairwise_bilateral(
-        sdims=(5, 5),
-        schan=(10, 10, 10), #ripetuto tre volte perche' sono i tre canali di colore (R,G,B)
+        sdims=(7, 7),
+        schan=(15, 15, 15),
         img=image,
         chdim=2,
     )
-    #imposto l'energia bilatrale nel CRF. con compat = 5
-    crf.addPairwiseEnergy(bilateral_energy, compat=5)
+    #imposto l'energia bilaterale nel CRF.
+    # Aumentato da 5 a 15: rafforza il vincolo "pixel vicini e di colore simile -> stessa classe",
+    # utile per affinare i contorni nelle immagini SEM dove le transizioni di grigio marcano i bordi
+    # sdims aumentato a 7 per catturare un contesto spaziale piu' ampio
+    # schan aumentato a 15 per tollerare piu' variazione tonale nelle regioni omogenee
+    crf.addPairwiseEnergy(bilateral_energy, compat=15)
 
-    #esegue l'algoritmo di inferenza CRF (il 5 indica il numero di iterazioni)
+    #esegue l'algoritmo di inferenza CRF (10 iterazioni di message-passing)
     #ad ogni iterazione i pixel "scambiano messaggi" con i loro vicini, influenzandosi 
     # reciprocamente. Ad esempio, se un pixel ha una forte pressione per essere Resina 
     # (dall'Energia Unaria) e i suoi vicini hanno una forte pressione per essere Pori (dall'Energia a Coppie), l'algoritmo bilancia queste forze.
+    # Aumentato da 5 a 10 per dare piu' tempo alla convergenza con i nuovi pesi pairwise
     # output: è la matrice delle probabilità marginali ottimizzate per ciascun pixel e ciascuna classe.
     # shape: (Numero classi, numero pixel totali)
-    CRF_probabilties = crf.inference(5)
+    CRF_probabilties = crf.inference(10)
     #convertiamo l'output CRF nella maschera di segmentazione predetta finale
     # Per ogni pixel seleziono la classe con la probabilità più alta. (l'asse 0 e' quello delle classi)
     #successivamente trasformiamo l'elenco 1D dei pixel totali in una matrice 2D con le stesse dimensioni dell'immagine originale.
@@ -134,21 +150,22 @@ def apply_dense_crf(image: np.ndarray, predicted_mask: np.ndarray, num_classes: 
     return refined_mask
 
 
-def evaluate_gpu_model(model, dataset: Dict[str, np.ndarray],) -> Dict:
+def evaluate_gpu_model(model, dataset: Dict[str, np.ndarray], use_crf: bool = True) -> Dict:
     """
-    Valuta il modello sul set di evaluation (applicando CRF)
+    Valuta il modello sul set di evaluation (opzionalmente applicando CRF).
     Args:
         model: Modello CNN-based addestrato.
-        dataset: Dizionario contenente: 
+        dataset: Dizionario contenente:
             - images: array numpy con forma (Num_immagini, altezza, larghezza, 3)
             - masks: array numpy con forma (Num_immagini, altezza, larghezza)
             - image_paths: lista dei percorsi delle immagini
+        use_crf: se True applica DenseCRF alle predizioni; se False usa solo l'output del classificatore.
     Returns:
         Dizionario contenente:
             - accuracy: accuracy del modello
             - predictions: array numpy con le predizioni del modello
             - ground_truth: array numpy con i ground truth
-            - previews: lista di 3 dizionari contenenti ciascuno [immagine, maschera ground truth, maschera predette, path immagine]
+            - previews: lista di 3 dizionari contenenti ciascuno [immagine, maschera ground truth, maschera predetta, path immagine]
     """
     #inizalizzo le liste
     predictions = []      # accumula le predizioni pixel-level (solo pixel validi)
@@ -200,18 +217,19 @@ def evaluate_gpu_model(model, dataset: Dict[str, np.ndarray],) -> Dict:
         #risultato = array 3D di dimensioni (altezza immagine, larghezza immagine, numero classi) con tutte le probabilita' per ogni pixel
         preds_upsampled /= preds_upsampled.sum(axis=-1, keepdims=True)
 
-        #convertiamo l'immagine in formato uint8 (0-255) per il DenseCRF
-        image_uint8 = np.clip(img * 255.0, 0, 255).astype(np.uint8)
-        #applico il DenseCRF per raffinare le predizioni
-        #restituisce numpy array 2D con la classe predetta di ogni pixel
-        CRF_pred = apply_dense_crf(image_uint8, preds_upsampled, len(CLASS_NAMES))
+        # Predizione finale: con CRF (raffinamento) oppure solo argmax sulle probabilità
+        if use_crf:
+            image_uint8 = np.clip(img * 255.0, 0, 255).astype(np.uint8)
+            final_pred = apply_dense_crf(image_uint8, preds_upsampled, len(CLASS_NAMES))
+        else:
+            final_pred = np.argmax(preds_upsampled, axis=-1).astype(np.int32)
 
-        #appiattiamo la maschera in un array 1D e sottraiamo 1 per convertire le classi da [0-4] a [-1-3]
+        #appiattiamo la maschera in un array 1D e sottraiamo 1 per convertire le classi da [1..N] a [0..N-1]
         #mappo eventuali label fuori range su background prima del flatten
         mask_clean = np.where(mask > len(CLASS_NAMES), 0, mask)
         gt_flattened_mask = mask_clean.reshape(-1) - 1
-        #appiattiamo le predizioni con CRF in un array 1D
-        pred_flat = CRF_pred.reshape(-1)
+        #appiattiamo le predizioni in un array 1D
+        pred_flat = final_pred.reshape(-1)
         #creo una maschera booleana che vale True per i pixel che non sono background (-1)
         valid = gt_flattened_mask >= 0
         #se la maschera non ha nessun pixel valido, salto il batch
@@ -226,10 +244,10 @@ def evaluate_gpu_model(model, dataset: Dict[str, np.ndarray],) -> Dict:
         if len(previews) < 3:
             previews.append(
                 {
-                    "image": img, #immagine originale
-                    "mask_gt": mask, #maschera ground truth
-                    "predicted_mask": CRF_pred, #mashcera predetta dal modello
-                    "path": img_path, #percorso file immagine originale
+                    "image": img,
+                    "mask_gt": mask,
+                    "predicted_mask": final_pred,
+                    "path": img_path,
                 }
             )
 
@@ -240,14 +258,6 @@ def evaluate_gpu_model(model, dataset: Dict[str, np.ndarray],) -> Dict:
     # Metriche pixel-level sul solo test set
     accuracy = accuracy_score(ground_truth, predictions)
     balanced_accuracy = balanced_accuracy_score(ground_truth, predictions)
-    f1_macro = f1_score(ground_truth, predictions, average="macro", zero_division=0)
-    f1_per_class = f1_score(
-        ground_truth,
-        predictions,
-        labels=labels,
-        average=None,
-        zero_division=0,
-    )
     iou_per_class = jaccard_score(
         ground_truth,
         predictions,
@@ -255,25 +265,27 @@ def evaluate_gpu_model(model, dataset: Dict[str, np.ndarray],) -> Dict:
         average=None,
         zero_division=0,
     )
+    miou = float(np.mean(iou_per_class))
 
     return {
         "accuracy": accuracy,
         "balanced_accuracy": balanced_accuracy,
-        "f1_macro": f1_macro,
-        "f1_per_class": np.asarray(f1_per_class, dtype=float),
+        "miou": miou,
         "iou_per_class": np.asarray(iou_per_class, dtype=float),
         "predictions": np.asarray(predictions, dtype=int),
         "ground_truth": np.asarray(ground_truth, dtype=int),
         "previews": previews,
+        "use_crf": use_crf,
     }
 
 
-def save_preview(previews: list[Dict], output_path: Path) -> None:
+def save_preview(previews: list[Dict], output_path: Path, use_crf: bool = True) -> None:
     """
-    Salva l'anteprima di 3 immagini, maschere ground truth e predizioni in un file png
+    Salva l'anteprima di 3 immagini, maschere ground truth e predizioni in un file png.
     Args:
-        previews: lista di 3 dizionari contenenti ciascuno [immagine, maschera ground truth, maschera predetta, path immagine]
+        previews: lista di dizionari con image, mask_gt, predicted_mask, path
         output_path: percorso del file png dove salvare l'anteprima
+        use_crf: se True mostra titolo "Maschera Predetta (CRF)", altrimenti "(no CRF)"
     """
     if not previews:
         print("[INFO] Nessuna anteprima da salvare.")
@@ -281,18 +293,15 @@ def save_preview(previews: list[Dict], output_path: Path) -> None:
 
     #creaimo i colori da usare nelle immagini
     color_map = colors.ListedColormap(
-        ["#9e9e9e", "#ff6f69", "#ffcc5c", "#88d8b0", "#6b5b95", "#2a9d8f"]
+        ["#9e9e9e", "#ff6f69", "#ffcc5c", "#88d8b0", "#6b5b95", "#2a9d8f", "#e07b39"]
     )
     #impostiamo il range di valori che i pixel possono aver per cui assegnare un certo colore
-    norm = colors.BoundaryNorm([-1.5, -0.5, 0.5, 1.5, 2.5, 3.5, 4.5], color_map.N)
-    #creiamo una griglia di altezza numero prewiews (3) e larghezza 4
+    norm = colors.BoundaryNorm([-1.5, -0.5, 0.5, 1.5, 2.5, 3.5, 4.5, 5.5], color_map.N)
+    #creiamo una griglia di altezza numero prewiews (3) e larghezza 3 (GT, predizione filtrata, predizione completa)
     n_rows = len(previews)
-    fig, axes = plt.subplots(n_rows, 4, figsize=(15, 4 * n_rows))
-   
+    fig, axes = plt.subplots(n_rows, 3, figsize=(12, 4 * n_rows))
 
     for row, sample in enumerate(previews):
-        img = sample["image"]
-
         mask_gt_raw = sample["mask_gt"]
         #sottraggo uno per mappare le classi da [0-6] a [-1-5]
         mask_gt = mask_gt_raw.astype(float) - 1
@@ -308,26 +317,21 @@ def save_preview(previews: list[Dict], output_path: Path) -> None:
         predicted_mask_filtered[mask_gt_raw == 0] = np.nan
         #salvo il nome del file dell'immagine
         name = Path(sample["path"]).name
-        
 
-        #alla riga i-esima colonna 0 mostro l'immagine originale
-        axes[row, 0].imshow(img)
-        axes[row, 0].set_title(f"Immagine\n{name}")
+        #alla riga i-esima colonna 0 mostro la maschera ground truth
+        axes[row, 0].imshow(mask_gt, cmap=color_map, norm=norm)
+        axes[row, 0].set_title(f"Maschera Ground Truth\n{name}")
         axes[row, 0].axis("off")
-        # alla seconda colonna mostro la maschera ground truth
-        axes[row, 1].imshow(mask_gt, cmap=color_map, norm=norm)
-        axes[row, 1].set_title("Maschera Ground Truth")
+
+        #alla seconda colonna mostro la maschera predetta ma solo i punti che combaciano con la maschera ground truth (senza background)
+        axes[row, 1].imshow(predicted_mask_filtered, cmap=color_map, norm=norm)
+        axes[row, 1].set_title("Predizione (solo GT>0)")
         axes[row, 1].axis("off")
 
-        #alla terza colonna mostro la maschera predetta ma solo i punti che combaciano con la maschera ground truth (senza backgrounf)
-        axes[row, 2].imshow(predicted_mask_filtered, cmap=color_map, norm=norm)
-        axes[row, 2].set_title("Predizione (solo GT>0)")
-        axes[row, 2].axis("off")
-
         #mostro la maschera predetta dal modello sull'intera immagine
-        axes[row, 3].imshow(predicted_mask, cmap=color_map, norm=norm)
-        axes[row, 3].set_title("Maschera Predetta (CRF)")
-        axes[row, 3].axis("off")
+        axes[row, 2].imshow(predicted_mask, cmap=color_map, norm=norm)
+        axes[row, 2].set_title("Maschera Predetta (CRF)" if use_crf else "Maschera Predetta (no CRF)")
+        axes[row, 2].axis("off")
 
     #creo la legenda dei colori
     handles = [
@@ -401,24 +405,28 @@ def save_confusion_matrix(cm: np.ndarray, class_names: list[str], output_path: P
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Valutazione modello GPU-optimized con CRF.")
-    #leggo da linea di comando il nome del modello da valutare (senza estensioni).
+    parser = argparse.ArgumentParser(description="Valutazione modello GPU-optimized (con o senza CRF).")
     parser.add_argument(
         "--model_prefix",
         type=str,
         default=MODEL_PREFIX,
-        help="Prefisso dei file salvati (senza _classifier.pkl / _feature_extractor.keras).",
+        help="Prefisso/path dei file del modello (es. result_convenxt_xgboost o result_convenxt_xgboost/gpu_optimized_cnn_model).",
     )
-    
+    parser.add_argument(
+        "--no_crf",
+        action="store_true",
+        help="Valuta senza raffinamento DenseCRF (solo output del classificatore).",
+    )
     args = parser.parse_args()
 
     model_path = (BASE_DIR / args.model_prefix).resolve()
+    use_crf = not args.no_crf
 
     print("=== VALUTAZIONE MODELLO GPU ===")
     print(f"Modello: {model_path}")
     print(f"Immagini: {IMAGES_DIR}")
     print(f"Maschere: {MASKS_DIR}")
-    print(f"CRF attivato")
+    print(f"CRF: {'attivato' if use_crf else 'disattivato'}")
     print("=" * 50)
     #creo un istanza del modello
     model = GPUOptimizedCNNSegmentationClassifier()
@@ -447,21 +455,16 @@ def main():
         "image_paths": image_paths,
     }
     print(f"Immagini valutate (holdout): {len(dataset['images'])}")
-    #valuto il modello sul set di evaluation
-    results = evaluate_gpu_model(model, dataset)
+    results = evaluate_gpu_model(model, dataset, use_crf=use_crf)
 
     accuracy = results["accuracy"]
     balanced_accuracy = results["balanced_accuracy"]
-    f1_macro = results["f1_macro"]
-    f1_per_class = results["f1_per_class"]
+    miou = results["miou"]
     iou_per_class = results["iou_per_class"]
 
-    print(f"\nAccuracy pixel (post-CRF): {accuracy:.4f}")
+    print(f"\nmIoU (mean IoU)          : {miou:.4f}")
+    print(f"Accuracy pixel           : {accuracy:.4f}")
     print(f"Balanced accuracy        : {balanced_accuracy:.4f}")
-    print(f"F1 macro                : {f1_macro:.4f}")
-    print("F1 per classe:")
-    for class_name, score in zip(CLASS_NAMES, f1_per_class):
-        print(f"  - {class_name:<20} {score:.4f}")
     print("IoU per classe:")
     for class_name, score in zip(CLASS_NAMES, iou_per_class):
         print(f"  - {class_name:<20} {score:.4f}")
@@ -481,8 +484,7 @@ def main():
     )
     print(f"Matrice di confusione salvata in: {CONFUSION_PATH}")
 
-    #salvo l'anteprima in un file png
-    save_preview(results["previews"], PREVIEW_PATH)
+    save_preview(results["previews"], PREVIEW_PATH, use_crf=results["use_crf"])
 
 
 if __name__ == "__main__":

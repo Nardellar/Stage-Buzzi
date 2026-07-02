@@ -168,11 +168,11 @@ def main():
 
         print("\n3. Training classificatore con Optuna...")
         #avviamo il training del classificatore e gli passiamo il set evaluation
-        best_f1 = model.train_classifier_optuna(
+        best_miou = model.train_classifier_optuna(
             n_trials=TRIALS,
             validation_data=validation_data,
         )
-        print(f"F1 macro best trial     : {best_f1:.4f}")
+        print(f"mIoU migliore (val, best trial): {best_miou:.4f}")
 
         print("\n4. Salvataggio modello...")
         model.save(str(MODEL_OUTPUT_PREFIX))

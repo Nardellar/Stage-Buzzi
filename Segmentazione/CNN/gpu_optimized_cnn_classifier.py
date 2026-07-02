@@ -79,7 +79,7 @@ class GPUClassifierConfig:
     #abilita l'uso della GPU per il classificatore
     use_gpu: bool = True
     #numero di classi da classificare
-    num_classes: int = 5
+    num_classes: int = 6
     #filtri dei blocchi Convoluzionali del decoder che raffinano la feature-map
     decoder_filters: int = 128
     #se False usa decoder deterministico (solo upsampling/resizing)
@@ -106,6 +106,7 @@ class GPUOptimizedCNNSegmentationClassifier:
             "Fase Fusa",
             "Belite",
             "Alite",
+            "Calce libera",
         ]
         #modello CNN. verra' definito dopo da "build_feature_extractor()"
         self._feature_extractor = None
@@ -451,19 +452,20 @@ class GPUOptimizedCNNSegmentationClassifier:
             current_h *= 2
             current_w *= 2
 
-        if use_learnable_decoder:
-            decoder_cnn = tf.keras.layers.Conv2D(
-                decoder_filters,
-                kernel_size=3,
-                padding="same",
-                activation="relu",
-            )(decoder_cnn)
-            decoder_cnn = tf.keras.layers.Conv2D(
-                decoder_filters // 2,
-                kernel_size=3,
-                padding="same",
-                activation="relu",
-            )(decoder_cnn)
+        #Conv2D finali per comprimere i canali: applicate SEMPRE (anche senza learnable decoder)
+        #per ridurre la dimensionalità delle feature e renderle gestibili dal classificatore
+        decoder_cnn = tf.keras.layers.Conv2D(
+            decoder_filters,
+            kernel_size=3,
+            padding="same",
+            activation="relu",
+        )(decoder_cnn)
+        decoder_cnn = tf.keras.layers.Conv2D(
+            decoder_filters // 2,
+            kernel_size=3,
+            padding="same",
+            activation="relu",
+        )(decoder_cnn)
 
         #applichaimo una rifinitura con un resize finale alla dimensione esplcitiamente richiesta nel caso le feature maps siano leggermente piu grandi delle misure desiderate
         resized = tf.keras.layers.Resizing(target_h,target_w,interpolation="bilinear",name="feature_resizer",)(decoder_cnn)
@@ -498,7 +500,7 @@ class GPUOptimizedCNNSegmentationClassifier:
         self.best_num_boost_round = best_iteration
 
         print(f"Migliori parametri: {self.best_params}")
-        print(f"Migliore F1 macro (val): {best_metric:.4f}")
+        print(f"Migliore mIoU (val): {best_metric:.4f}")
 
         return best_metric
 
