@@ -1,0 +1,10 @@
+{
+    "attribute": "temperatura",
+    "id2label": {
+        "0": "1300",
+        "1": "1400",
+        "2": "1500"
+    },
+    "model_weights_path": "training_results_temperatura/best_model_temperatura_20251023_132541.weights.h5",
+    "num_classes": 3
+}

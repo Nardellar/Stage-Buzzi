@@ -1,20 +1,37 @@
-# 🧠 Ignora il dataset locale (immagini e CSV)
-Esperimenti/
+# Large ML model files
+*.pth
+*.h5
+*.keras
+*.weights
+*.pkl
+*.joblib
 
-# 🐍 Ignora l’ambiente virtuale
-.venv/
-
-# 💡 File generati da Python
-__pycache__/
-*.py[cod]
-*.pyo
-
-# 📝 Ignora file temporanei o di backup
+# Training logs
+logs/
 *.log
-*.tmp
-*.bak
+
+# Large datasets
+*.arrow
+*.parquet
+
+# Temporary files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+.pytest_cache/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
 .DS_Store
+Thumbs.db
 
-# 🧪 Jupyter notebook checkpoints
-.ipynb_checkpoints/
-
+images/
+Segmentazione/images/

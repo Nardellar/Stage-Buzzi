@@ -1,0 +1,13 @@
+RESOCONTO CLASSIFICAZIONE:
+USIAMO UN MODELLO VIT GOOGLE BASE 16
+
+Il problema è che il classificatore TFViTForImageClassification già addestrato é stato addestrato per riconoscere 1000 oggetti, e non solo
+3 classi di temperatura.
+
+
+Non possiamo correggere la libreria, perciò aggiriamo il problema costruendo il modello in modo leggermente diverso.
+
+Invece di usare la classe TFViTForImageClassification che fa tutto in automatico caricheremo il corpo principale del
+modello ViT (senza il classificatore finale).
+
+Aggiungeremo manualmente un nuovo classificatore con il numero corretto di classi.
