@@ -28,13 +28,13 @@ from transformers import (
 )
 from safetensors.torch import load_file
 
-from dataset_utils import (
+from .dataset_utils import (
     add_class_id_column,
     build_vit_batch_preprocessor,
     filter_missing_class,
     load_attribute_metadata,
 )
-from create_and_train_model import build_model
+from .create_and_train_model import build_model
 
 # Numero di immagini per cui salvare le attention map (validation set).
 ATTENTION_SAMPLES = 8

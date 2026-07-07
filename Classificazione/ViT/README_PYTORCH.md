@@ -14,15 +14,35 @@ Questa implementazione usa **PyTorch nativo** con le **best practices di Hugging
 
 ## 🚀 Quick Start
 
+### Installazione dipendenze
+```bash
+pip install -r requirements.txt
+```
+
 ### Training
 ```bash
-python create_and_train_model.py temperatura
+python -m Classificazione.ViT.create_and_train_model "(attributo)"
 ```
 
 ### Evaluation
 ```bash
-python evaluate_model_pytorch.py
+python -m Classificazione.ViT.evaluate_model temperatura
 ```
+
+## 🌐 Risorse Hugging Face
+
+Lo script usa risorse online Hugging Face:
+- dataset: `Nardellar/Esperimenti`
+- modello base: `google/vit-base-patch16-224`
+
+Puoi personalizzarle da CLI:
+
+```bash
+python -m Classificazione.ViT.create_and_train_model "(attributo)" \
+  --dataset-name "(Nome_Dataset)" \
+  --model-name "(Nome_Modello)"
+```
+Al primo avvio serve connessione internet per scaricare dataset/modello (poi vengono cache-ati localmente).
 
 ## 🔧 Architettura
 

@@ -54,16 +54,17 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from collections import Counter
 from pathlib import Path
-from typing import Dict, Tuple
+from typing import Dict, Optional, Tuple
 
 import numpy as np
 from sklearn.utils.class_weight import compute_class_weight
 
 import torch
 import torch.nn as nn
-from datasets import load_dataset, ClassLabel
+from datasets import ClassLabel, load_dataset
 from sklearn.metrics import f1_score
 from transformers import (
     AutoImageProcessor,
@@ -74,7 +75,7 @@ from transformers import (
     EarlyStoppingCallback,
 )
 
-from dataset_utils import (
+from .dataset_utils import (
     add_class_id_column,
     build_vit_batch_preprocessor,
     filter_missing_class,
@@ -82,14 +83,21 @@ from dataset_utils import (
 )
 
 MODEL_NAME = "google/vit-base-patch16-224"
+DATASET_NAME = "Nardellar/Esperimenti"
 
 
-def build_model(num_labels: int, dropout_rate: float = 0.3) -> ViTForImageClassification:
+def build_model(
+    num_labels: int,
+    model_name: str = MODEL_NAME,
+    dropout_rate: float = 0.3,
+    hf_token: Optional[str] = None,
+) -> ViTForImageClassification:
     """Crea il ViT con head personalizzata e backbone congelato."""
     model = ViTForImageClassification.from_pretrained(
-        MODEL_NAME,
+        model_name,
         num_labels=num_labels,
         ignore_mismatched_sizes=True, #per permettermi di caricare il ViT anche se chiedo una classificazione a 3 classi e non 768. tanto inseriremo una head personalizzata.
+        token=hf_token,
 
     )
 
@@ -111,7 +119,13 @@ def build_model(num_labels: int, dropout_rate: float = 0.3) -> ViTForImageClassi
 
     return model
 
-def prepare_datasets(attribute: str, use_grayscale: bool) -> Tuple[torch.utils.data.Dataset, torch.utils.data.Dataset, torch.Tensor, Dict[int, str], Dict[str, int]]:
+def prepare_datasets(
+    attribute: str,
+    use_grayscale: bool,
+    dataset_name: str = DATASET_NAME,
+    model_name: str = MODEL_NAME,
+    token: Optional[str] = None,
+) -> Tuple[torch.utils.data.Dataset, torch.utils.data.Dataset, torch.Tensor, Dict[int, str], Dict[str, int]]:
     """Carica dataset HuggingFace, aggiunge il valore della classe alle immagini, calcola split e calcola i class weights."""
     # Carichiamo le informazioni sul CSV e otteniamo le mappature per l'attributo scelto.
     classes, class_to_id, id_to_class, experiment_to_class = load_attribute_metadata(attribute)
@@ -121,7 +135,7 @@ def prepare_datasets(attribute: str, use_grayscale: bool) -> Tuple[torch.utils.d
     #     "image": file png,
     #     "label": "EXP01", "EXP02", "EXP03", ...
     # }
-    dataset = load_dataset("Nardellar/Esperimenti", split="train")
+    dataset = load_dataset(dataset_name, split="train", token=token)
 
     # Per ogni immagine aggiungiamo la colonna "class_id" con l'ID classe usando le informazioni del CSV.
     #ottenendo il formato
@@ -168,7 +182,7 @@ def prepare_datasets(attribute: str, use_grayscale: bool) -> Tuple[torch.utils.d
         print(f"  - {id_to_class[class_id]}: {count} immagini")
 
     # Usiamo il processor veloce per ridurre il lavoro CPU durante il preprocessing on-the-fly.
-    processor = AutoImageProcessor.from_pretrained(MODEL_NAME, use_fast=True)
+    processor = AutoImageProcessor.from_pretrained(model_name, use_fast=True, token=token)
     # Applica trasformazioni ai due set (crop, scala di grigi, normalizzazione, aggiunta labels).
     transform = build_vit_batch_preprocessor(processor, use_grayscale, label_field="class_id")
     train_ds = train_ds.with_transform(transform)
@@ -250,20 +264,47 @@ def main():
         action="store_true",
         help="Se specificato, converte le immagini in scala di grigi.",
     )
+    parser.add_argument(
+        "--dataset-name",
+        default=DATASET_NAME,
+        help=f"Dataset Hugging Face da usare (default: {DATASET_NAME}).",
+    )
+    parser.add_argument(
+        "--model-name",
+        default=MODEL_NAME,
+        help=f"Modello Hugging Face da usare (default: {MODEL_NAME}).",
+    )
+    parser.add_argument(
+        "--hf-token",
+        default=os.getenv("HF_TOKEN"),
+        help="Token Hugging Face opzionale (se il dataset/modello e' privato). Default: variabile HF_TOKEN.",
+    )
     args = parser.parse_args()
 
     attribute = args.attribute
+    dataset_name = args.dataset_name
+    model_name = args.model_name
+    hf_token = args.hf_token
     results_dir = Path(f"training_results_{attribute}")
     results_dir.mkdir(parents=True, exist_ok=True)
 
     print("ADDESTRAMENTO ViT")
     print(f"Attributo selezionato: {attribute}")
+    print(f"Dataset HF: {dataset_name}")
+    print(f"Modello HF: {model_name}")
+    print(f"HF token: {'configurato' if hf_token else 'non configurato (ok per risorse pubbliche)'}")
 
     # 1) Caricamento dataset e trasformazioni immagini
-    train_ds, val_ds, class_weights, id_to_class, class_to_id = prepare_datasets(attribute, args.grayscale)
+    train_ds, val_ds, class_weights, id_to_class, class_to_id = prepare_datasets(
+        attribute=attribute,
+        use_grayscale=args.grayscale,
+        dataset_name=dataset_name,
+        model_name=model_name,
+        token=hf_token,
+    )
 
     # 2) Costruzione del modello: backbone ViT congelato + classificatore personalizzato.
-    model = build_model(num_labels=len(id_to_class))
+    model = build_model(num_labels=len(id_to_class), model_name=model_name, hf_token=hf_token)
     #imposta la variabile a un dizionario ID classe -> classe (es: 0 -> "1300", 1 -> "1400", 2 -> "1500")
     model.config.id2label = id_to_class
     #imposta la variabile a un dizionario classe -> ID classe (es: "1300" -> 0, "1400" -> 1, "1500" -> 2)
@@ -298,7 +339,7 @@ def main():
         seed=42,
     )
     #carico il pre-processor per il ViT. use_fast=True usa il pre-processor più veloce
-    processor = AutoImageProcessor.from_pretrained(MODEL_NAME, use_fast=True)
+    processor = AutoImageProcessor.from_pretrained(model_name, use_fast=True, token=hf_token)
 
     # 4) Istanziazione del Trainer con loss personalizzata per pesare le classi e usare label smoothing.
     trainer = WeightedTrainer(

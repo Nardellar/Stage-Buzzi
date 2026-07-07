@@ -2,14 +2,12 @@
 Script per rigenerare SOLO il validation_test_set senza training.
 Usa la stessa logica del training ma si ferma dopo aver salvato il dataset.
 """
-import sys
 import argparse
 from pathlib import Path
 import pandas as pd
 from datasets import load_dataset, ClassLabel
 
-sys.path.append(str(Path(__file__).resolve().parents[2]))
-from common import csv_config
+from ..common import csv_config
 
 def regenerate_validation_set_only(attribute: str):
     """Rigenera solo il validation set, senza training."""
