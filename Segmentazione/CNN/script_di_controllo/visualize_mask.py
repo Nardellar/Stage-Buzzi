@@ -7,8 +7,8 @@ import matplotlib.patches as mpatches  # <-- ECCO LA CORREZIONE
 
 # --- CONFIGURAZIONE ---
 # Modifica questi percorsi per farli corrispondere alla tua struttura
-IMAGE_DIR = "../images/Immagini/"
-MASK_DIR = "../images/Maschere/"
+IMAGE_DIR = "../../images/Immagini/"
+MASK_DIR = "../../images/Maschere/"
 
 # Seleziona quale coppia immagine/maschera vuoi visualizzare tramite nome file.
 # Puoi usare sia il nome completo (es. "1253--27.png") sia solo lo stem (es. "1253--27").

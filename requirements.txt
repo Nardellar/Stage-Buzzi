@@ -20,3 +20,5 @@ pillow~=11.2.1
 onnxruntime~=1.19.2
 torchvision~=0.22.0
 ipython~=8.18.1
+albumentations ~= 2.0.8
+pydensecrf2 ~= 1.1

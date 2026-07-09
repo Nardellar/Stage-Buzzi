@@ -1,158 +1,86 @@
-# CNN + Classificatore per Segmentazione
+# GPU-Optimized CNN + Boosting per Segmentazione Clinker
 
-Questo sistema implementa un approccio moderno per la segmentazione delle componenti del cemento, basato sull'architettura del notebook `Segmentazione_best_(optimization).ipynb` ma con miglioramenti significativi.
+Questo progetto implementa una pipeline ibrida avanzata per la segmentazione semantica delle componenti del clinker tramite immagini al microscopio. 
 
-## Architettura
+Il sistema supera gli approcci tradizionali combinando la capacità di estrazione spaziale delle Reti Neurali Convoluzionali (CNN) con la potenza e l'interpretabilità dei classificatori gradient boosting, supportati da ottimizzazione automatica degli iperparametri e raffinamento spaziale.
 
-Il sistema utilizza un approccio a due fasi:
+## 🏗️ Architettura della Pipeline
 
-1. **Encoder CNN**: Estrae features multi-scala da un modello pre-addestrato (ResNet50, EfficientNet, o VGG16)
-2. **Classificatore XGBoost**: Classifica ogni pixel nelle 6 classi utili
+L'approccio si divide in tre fasi sequenziali:
 
+1. **Feature Extraction (CNN):** Un backbone pre-addestrato (ResNet50 o ConvNeXt-Tiny) analizza l'immagine ed estrae feature map ricche di contesto spaziale, eliminando il rumore dei decoder non addestrati.
+2. **Pixel-wise Classification (Boosting):** I vettori di feature di ogni pixel vengono classificati da un modello XGBoost o LightGBM (ottimizzato su GPU). Optuna gestisce la ricerca degli iperparametri ideali (massimizzando la metrica mIoU).
+3. **Raffinamento Spaziale (DenseCRF):** Un Conditional Random Field (CRF) applica vincoli di prossimità e colore (Bilateral e Gaussian energy) alle predizioni probabilistiche del booster, eliminando il rumore e definendo nettamente i contorni.
+
+---
+## 🚀 Quick Start
+
+### 1. Installazione Dipendenze
+Assicurati di avere un ambiente virtuale attivo, quindi installa i requisiti:
+
+```bash
+pip install -r requirements.txt
+```
+
+### 2. Addestramento del Modello
+Per avviare l'estrazione delle feature e l'ottimizzazione del classificatore. Puoi scegliere il backbone CNN tramite riga di comando.
+
+```bash
+# Training standard (usa ConvNeXt-Tiny per default)
+python train_gpu_optimized_classifier.py
+
+# Training usando ResNet50 come estrattore
+python train_gpu_optimized_classifier.py --cnn_model resnet50
+
+# Training con conversione delle immagini in scala di grigi
+python train_gpu_optimized_classifier.py --grayscale
+```
+*I file del modello addestrato (estrattore `.keras` e classificatore `.pkl`/`.json`) verranno salvati nella root del progetto.*
+
+### 3. Valutazione e Inferenza
+Per testare il modello sulle immagini di validazione/holdout. Lo script genererà in automatico un report delle metriche e salverà le anteprime.
+
+```bash
+# Valutazione completa con raffinamento DenseCRF attivato (Raccomandato)
+python evaluate_gpu_model.py
+
+# Valutazione disabilitando il CRF (restituisce le predizioni grezze del booster)
+python evaluate_gpu_model.py --no_crf
+```
+*Gli output visivi (`gpu_model_preview.png` e `gpu_confusion_matrix.png`) verranno generati nella cartella corrente.*
+
+---
 ### Classi di Segmentazione
+Il sistema mappa le seguenti classi (ignorando i pixel di background non etichettati durante il training):
+* **0**: Resina
+* **1**: Pori/Imperfezioni
+* **2**: Fase Fusa
+* **3**: Belite
+* **4**: Alite
+* **5**: Calce libera
 
-- **Classe 0**: Pixel non etichettati (esclusi dall'addestramento)
-- **Classe 1**: Resina
-- **Classe 2**: Pori e imperfezioni
-- **Classe 3**: Fase fusa
-- **Classe 4**: Belite
-- **Classe 5**: Alite
-- **Classe 6**: Classe 6 (label sconosciuta)
+---
 
-## File Principali
+## 📂 Struttura dei File Core
 
-- `cnn_classifier_model.py`: Classe principale del modello
-- `train_cnn_classifier.py`: Script di training
-- `test_cnn_classifier.py`: Script di test e visualizzazione
-- `README_CNN_Classifier.md`: Questa documentazione
+* `gpu_optimized_cnn_classifier.py`: Contiene la classe principale che gestisce l'integrazione tra la CNN in Keras e l'estimatore XGBoost/LightGBM.
+* `train_gpu_optimized_classifier.py`: Script di avvio per il training della pipeline e il tuning di Optuna.
+* `evaluate_gpu_model.py`: Script di test finale. Applica l'inferenza, il filtraggio DenseCRF e genera le metriche (mIoU, F1) e le matrici di confusione.
+* `data_module.py`: Gestisce il caricamento immagini, il partizionamento stratificato e la Data Augmentation tramite Albumentations.
+* `tuning.py`: Gestisce l'ottimizzazione degli iperparametri (LightGBM/XGBoost) tramite framework Optuna.
+* `script_di_controllo/*`: Utilities standalone per sovrapporre e ispezionare visivamente singole maschere e immagini originali e per clacolare la distribuzione delle classi nel dataset.
 
-## Installazione Dipendenze
-
-```bash
-pip install tensorflow
-pip install tf-keras
-pip install xgboost
-pip install optuna
-pip install opencv-python
-pip install pillow
-pip install scikit-learn
-pip install matplotlib
-pip install tqdm
-```
-
-## Utilizzo
-
-### 1. Training del Modello
-
-```bash
-# Training con ResNet50 (raccomandato)
-python train_cnn_classifier.py --cnn_model resnet50 --image_size 512 512 --batch_size 2
-
-# Training con EfficientNet #CONSIGLIATO FOR REAL
-python train_cnn_classifier.py --cnn_model efficientnet --image_size 512 512 --batch_size 2
-
-# Training senza ottimizzazione parametri (più veloce)
-python train_cnn_classifier.py --skip_optimization
-
-# Training con parametri personalizzati
-python train_cnn_classifier.py --cnn_model resnet50 --optimize_trials 50 --model_save_path my_model.pkl
-```
-
-### 2. Test del Modello
-
-```bash
-# Test su una singola immagine
-python test_cnn_classifier.py --image_path ../images/Immagini/1579--03.png
-
-# Test su più immagini
-python test_cnn_classifier.py --image_dir ../images/Immagini/ --num_images 5
-
-# Confronto con ground truth
-python test_cnn_classifier.py --image_path ../images/Immagini/1579--03.png --mask_path ../images/Maschere/1579--03.tif
-
-# Salva i risultati
-python test_cnn_classifier.py --image_dir ../images/Immagini/ --num_images 3 --save_results
-```
-
-## Caratteristiche del Sistema
-
-### Vantaggi rispetto al notebook originale:
-
-1. **Architetture moderne**: Supporta ResNet50, EfficientNet, VGG16
-2. **Gestione memoria ottimizzata**: Elaborazione in batch per gestire grandi immagini
-3. **Ottimizzazione automatica**: Usa Optuna per ottimizzare i parametri XGBoost
-4. **Visualizzazione avanzata**: Confronto con ground truth e statistiche dettagliate
-5. **Codice modulare**: Facilmente estendibile e modificabile
-
-### Gestione delle Classi:
-
-- **Filtraggio automatico**: Esclude automaticamente i pixel di classe 0 (non etichettati)
-- **Rimappatura**: Converte le etichette da 1-6 a 0-5 per il classificatore
-- **Validazione**: Verifica la distribuzione delle classi durante il caricamento
-
-### Ottimizzazioni:
-
-- **Features multi-scala**: Combina features da diversi livelli della CNN
-- **Upsampling intelligente**: Riconcilia le dimensioni delle features
-- **Augmentation**: Supporto per data augmentation (opzionale)
-- **CRF**: Possibilità di applicare Conditional Random Fields (da implementare)
-
-## Parametri di Training
-
-### Modelli CNN Supportati:
-
-- `resnet50`: ResNet50 pre-addestrato su ImageNet (raccomandato)
-- `efficientnet`: EfficientNet-B0 pre-addestrato su ImageNet
-- `vgg16`: VGG16 pre-addestrato su ImageNet
-
-### Parametri XGBoost:
-
-Il sistema ottimizza automaticamente:
-- `max_depth`: Profondità dell'albero (4-10)
-- `learning_rate`: Tasso di apprendimento (0.01-0.3)
-- `n_estimators`: Numero di alberi (100-500)
-- `subsample`: Percentuale di dati utilizzati (0.6-1.0)
-- `colsample_bytree`: Percentuale di features utilizzate (0.6-1.0)
-- E molti altri parametri...
-
-## Struttura dei Dati
-
-### Input:
-- **Immagini**: PNG/JPG in `../images/Immagini/`
-- **Maschere**: TIFF in `../images/Maschere/`
-- **Dimensioni**: 1024x1024 (ridimensionate automaticamente)
-
-### Output:
-- **Modello**: File .pkl con classificatore addestrato
-- **Visualizzazioni**: Immagini con risultati della segmentazione
-- **Statistiche**: Report dettagliati delle performance
-
-## Troubleshooting
-
-### Errori Comuni:
-
-1. **Memoria insufficiente**: Riduci `batch_size` o `image_size`
-2. **GPU non disponibile**: Il sistema usa automaticamente la CPU
-3. **File non trovati**: Verifica i percorsi delle immagini e maschere
-4. **Errori di import**: Installa tutte le dipendenze richieste
-
-### Performance:
-
-- **Training**: 20-60 minuti (dipende da GPU e numero di trial)
-- **Inference**: 1-5 secondi per immagine
-- **Memoria**: 4-8 GB RAM raccomandati
-
-## Estensioni Future
-
-Possibili miglioramenti:
-1. **CRF post-processing**: Applicazione di Conditional Random Fields
-2. **Ensemble models**: Combinazione di più modelli
-3. **Transfer learning**: Fine-tuning dell'encoder CNN
-4. **Data augmentation**: Augmentation automatica durante il training
-5. **Validation cross-fold**: Validazione incrociata per stime più robuste
-
-## Contatto
-
-Per domande o problemi, consulta la documentazione del progetto o contatta il team di sviluppo.
+---
 
 
+
+## ⚙️ Configurazione (Costanti)
+
+Per modificare il comportamento interno, puoi agire direttamente sulle costanti dichiarate in cima al file `train_gpu_optimized_classifier.py`:
+
+* `BATCH_SIZE`: default: 2.
+* `CLASSIFIER_TYPE`: Scegli tra `"xgboost"` o `"lightgbm"`.
+* `USE_GPU`: Imposta a `True` per sfruttare l'accelerazione hardware nel training dei booster.
+* `MAX_PIXELS_PER_IMAGE`: Controlla il campionamento (stratificato) dei pixel per prevenire l'esaurimento della RAM (default: 20000).
+* `TRIALS`: Numero di iterazioni concesse a Optuna per trovare i parametri ideali (default: 75).
+* `AUGMENTATION_PROFILE`: Scegli tra `"standard"` o `"aggressive"`.

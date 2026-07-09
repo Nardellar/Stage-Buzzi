@@ -1,3 +1,6 @@
+# Dependencies
+node_modules/
+
 # Large ML model files
 *.pth
 *.h5
@@ -37,4 +40,7 @@ images/
 Segmentazione/images/
 training_results_*/
 manual_evaluation_results_*/
+evaluation_results_*/
+Classificazione/result_*/
+Segmentazione/CNN/result_*/
 validation_test_set/

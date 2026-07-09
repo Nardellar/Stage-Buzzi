@@ -1,7 +1,7 @@
 # ViT Classification - PyTorch Implementation
 
 ## 📋 Overview
-.........................
+Questa cartella contiene la pipeline di **classificazione di attributi** basata su **Vision Transformer (ViT)** in PyTorch/HuggingFace.
 ## 🚀 Quick Start
 
 ### Installazione dipendenze
@@ -25,20 +25,18 @@ Lo script usa risorse online Hugging Face:
 - dataset: `Nardellar/Esperimenti`
 - modello base: `google/vit-base-patch16-224`
 
-Puoi personalizzarle da CLI:
-
-```bash
-python -m Classificazione.ViT.create_and_train_model "(attributo)" \
---dataset-name "(Nome_Dataset)" \
-  --model-name "(Nome_Modello)"
-```
 Al primo avvio serve connessione internet per scaricare dataset/modello (poi vengono cache-ati localmente).
+
+## 📌 Documentazione tecnica
+
+- Scelte progettuali (head + regolarizzazione + configurazione): `DESIGN_CLASSIFICAZIONE.md`
 
 ## 🔧 Architettura
 
-### Modello: `ViTForCustomClassification`
+### Modello
 - **Base**: `google/vit-base-patch16-224` pretrained
-- **Classification Head custom**: 
+- **Backbone**: congelato (no fine-tuning end-to-end)
+- **Classification Head custom** (MLP a 2 layer):
   - Dropout (0.3)
   - Linear layer (768 → 384)
   - LayerNorm
@@ -48,20 +46,22 @@ Al primo avvio serve connessione internet per scaricare dataset/modello (poi ven
 
 ### Parametri di Training
 - **Optimizer**: AdamW (lr=5e-5, weight_decay=1e-4)
-- **Loss**: CrossEntropyLoss con class weights
+- **Loss**: CrossEntropy con class weights + label smoothing (0.1)
 - **Scheduler**: ReduceLROnPlateau (factor=0.5, patience=7)
 - **Early Stopping**: patience=15 epochs
-- **Batch Size**: 16
+- **Metriche**: accuracy, F1 macro, F1 weighted (best model su F1 macro)
+
+Per motivazioni e dettagli di design: vedi `DESIGN_CLASSIFICAZIONE.md`.
 
 
 ## 📁 File Structure
 
 ```
 Classificazione/ViT/
-├── train_model_pytorch.py       # Training script
-├── evaluate_model_pytorch.py    # Evaluation script
+├── create_and_train_model.py    # Training (Trainer HF + loss pesata)
+├── evaluate_model.py            # Evaluation + report/plot
+├── manual_train_model_pytorch.py# Variante con training loop manuale
 ├── training_results_*/          # Training outputs
-│   ├── best_model_*.pth         # Saved model
 │   └── artifacts.json           # Metadata
 ├── evaluation_results_*/        # Evaluation outputs
 │   ├── classification_report_*.json
@@ -70,16 +70,9 @@ Classificazione/ViT/
 ```
 ## 📊 Output del Training
 
-Il modello salvato contiene:
-```python
-{
-    'epoch': epoch,
-    'model_state_dict': model.state_dict(),
-    'optimizer_state_dict': optimizer.state_dict(),
-    'val_loss': val_loss,
-    'val_acc': val_acc,
-}
-```
+Il training salva:
+- directory con checkpoint/best model (gestita da HuggingFace Trainer)
+- `artifacts.json` con metadati (attributo, mapping classi, flag grayscale, metriche)
 
 ## 🎓 Evaluation Metrics
 
