@@ -35,3 +35,6 @@ Thumbs.db
 
 images/
 Segmentazione/images/
+training_results_*/
+manual_evaluation_results_*/
+validation_test_set/
