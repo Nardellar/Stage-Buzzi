@@ -12,7 +12,7 @@ from datasets import Dataset
 from PIL import Image
 
 sys.path.append(str(Path(__file__).resolve().parents[2]))
-from common import csv_config  # noqa: E402
+from Classificazione.ViT.gestione_dataset import csv_config
 
 
 def load_attribute_metadata(attribute: str) -> Tuple[List[str], Dict[str, int], Dict[int, str], Dict[str, str]]:

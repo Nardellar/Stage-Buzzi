@@ -28,7 +28,7 @@ from transformers import (
 )
 from safetensors.torch import load_file
 
-from .dataset_utils import (
+from Classificazione.ViT.gestione_dataset.dataset_utils import (
     add_class_id_column,
     build_vit_batch_preprocessor,
     filter_missing_class,
