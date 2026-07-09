@@ -1,7 +1,0 @@
-numpy
-opencv-python-headless
-scikit-learn
-matplotlib
-timm
-torch
-torchvision

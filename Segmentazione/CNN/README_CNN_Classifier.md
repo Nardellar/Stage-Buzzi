@@ -21,8 +21,16 @@ Assicurati di avere un ambiente virtuale attivo, quindi installa i requisiti:
 ```bash
 pip install -r requirements.txt
 ```
+### 2. Download Dataset
+Il dataset in repository non è quello completo per questioni di spazio. Per scaricare ed estrarre automaticamente il dataset completo (immagini e maschere), avvia lo script dedicato dalla root del progetto:
 
-### 2. Addestramento del Modello
+```bash
+python script_di_controllo/download_dataset.py
+```
+
+Lo script scaricherà lo .zip da Google Drive e creerà la cartella images/ posizionandola al livello corretto per l'addestramento.
+
+### 3. Addestramento del Modello
 Per avviare l'estrazione delle feature e l'ottimizzazione del classificatore. Puoi scegliere il backbone CNN tramite riga di comando.
 
 ```bash
@@ -37,7 +45,7 @@ python train_gpu_optimized_classifier.py --grayscale
 ```
 *I file del modello addestrato (estrattore `.keras` e classificatore `.pkl`/`.json`) verranno salvati nella root del progetto.*
 
-### 3. Valutazione e Inferenza
+### 4. Valutazione e Inferenza
 Per testare il modello sulle immagini di validazione/holdout. Lo script genererà in automatico un report delle metriche e salverà le anteprime.
 
 ```bash
