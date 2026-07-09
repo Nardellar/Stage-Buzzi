@@ -45,35 +45,6 @@ def analyze_dataset_distribution():
         exp_name = exp_id2name.get(exp_id, f"Unknown_{exp_id}")
         print(f"  {exp_name}: {count} immagini")
     
-    # Analizza per attributo TEMPERATURA
-    print("\n" + "=" * 70)
-    print("📊 ANALISI PER TEMPERATURA")
-    print("=" * 70)
-    
-    attr_map = df.set_index("ID")["temperatura"].to_dict()
-    
-    # Raggruppa per temperatura
-    temp_distribution = defaultdict(lambda: {"experiments": [], "total_images": 0, "images_per_exp": []})
-    
-    for exp_id, count in exp_counts.items():
-        exp_name = exp_id2name.get(exp_id, None)
-        if exp_name:
-            temp = attr_map.get(exp_name, None)
-            if temp:
-                temp_distribution[temp]["experiments"].append(exp_name)
-                temp_distribution[temp]["total_images"] += count
-                temp_distribution[temp]["images_per_exp"].append((exp_name, count))
-    
-    for temp in sorted(temp_distribution.keys()):
-        data = temp_distribution[temp]
-        print(f"\n🌡️  TEMPERATURA {temp}°C:")
-        print(f"  📁 Numero esperimenti: {len(data['experiments'])}")
-        print(f"  📊 Totale immagini: {data['total_images']}")
-        print(f"  📈 Media immagini per esperimento: {data['total_images'] / len(data['experiments']):.1f}")
-        print(f"  📋 Esperimenti:")
-        for exp_name, count in sorted(data['images_per_exp']):
-            print(f"     - {exp_name}: {count} immagini")
-    
     # Analizza TUTTI gli attributi
     print("\n" + "=" * 70)
     print("📊 ANALISI PER TUTTI GLI ATTRIBUTI")
@@ -86,91 +57,30 @@ def analyze_dataset_distribution():
         attr_map = df.set_index("ID")[attribute].to_dict()
         
         attr_distribution = defaultdict(int)
-        
+        total_attr_images = 0
+
+        def sort_key(value):
+            try:
+                return (0, float(value))
+            except (TypeError, ValueError):
+                return (1, str(value))
+
         for exp_id, count in exp_counts.items():
             exp_name = exp_id2name.get(exp_id, None)
             if exp_name:
                 attr_value = attr_map.get(exp_name, None)
-                if attr_value:
-                    attr_distribution[attr_value] += count
-        
-        for value in sorted(attr_distribution.keys()):
+                # Mantiene anche classi con valore 0 (es. raffreddamento=0) e scarta solo valori mancanti.
+                if attr_value is None:
+                    continue
+                if isinstance(attr_value, float) and pd.isna(attr_value):
+                    continue
+                attr_distribution[attr_value] += count
+                total_attr_images += count
+
+        for value in sorted(attr_distribution.keys(), key=sort_key):
             count = attr_distribution[value]
-            print(f"  {value}: {count} immagini")
-    
-    # Verifica split train/val
-    print("\n" + "=" * 70)
-    print("📊 SIMULAZIONE SPLIT TRAIN/VAL (80/20)")
-    print("=" * 70)
-    
-    total_images = len(ds)
-    train_size = int(total_images * 0.8)
-    val_size = total_images - train_size
-    
-    print(f"📊 Totale immagini: {total_images}")
-    print(f"🏋️  Training set (80%): {train_size} immagini")
-    print(f"✅ Validation set (20%): {val_size} immagini")
-    
-    print("\n📌 Per temperatura (stima con split 80/20):")
-    for temp in sorted(temp_distribution.keys()):
-        total = temp_distribution[temp]["total_images"]
-        train_est = int(total * 0.8)
-        val_est = total - train_est
-        print(f"  Temperatura {temp}°C:")
-        print(f"    - Totale: {total} immagini")
-        print(f"    - Training: ~{train_est} immagini")
-        print(f"    - Validation: ~{val_est} immagini")
-    
-    # Verifica esperimenti con meno di 100 immagini
-    print("\n" + "=" * 70)
-    print("⚠️  ESPERIMENTI CON MENO DI 100 IMMAGINI")
-    print("=" * 70)
-    
-    incomplete_experiments = []
-    for exp_id, count in sorted(exp_counts.items()):
-        if count < 100:
-            exp_name = exp_id2name.get(exp_id, f"Unknown_{exp_id}")
-            temp = attr_map.get(exp_name, "N/A")
-            incomplete_experiments.append((exp_name, count, temp))
-    
-    if incomplete_experiments:
-        print(f"📉 Trovati {len(incomplete_experiments)} esperimenti con meno di 100 immagini:")
-        for exp_name, count, temp in incomplete_experiments:
-            print(f"  - {exp_name}: {count} immagini (Temperatura: {temp})")
-    else:
-        print("✅ Tutti gli esperimenti hanno 100 immagini")
-    
-    # Verifica esperimenti con più di 100 immagini
-    print("\n" + "=" * 70)
-    print("📈 ESPERIMENTI CON PIÙ DI 100 IMMAGINI")
-    print("=" * 70)
-    
-    extra_experiments = []
-    for exp_id, count in sorted(exp_counts.items()):
-        if count > 100:
-            exp_name = exp_id2name.get(exp_id, f"Unknown_{exp_id}")
-            temp = attr_map.get(exp_name, "N/A")
-            extra_experiments.append((exp_name, count, temp))
-    
-    if extra_experiments:
-        print(f"📈 Trovati {len(extra_experiments)} esperimenti con più di 100 immagini:")
-        for exp_name, count, temp in extra_experiments:
-            print(f"  - {exp_name}: {count} immagini (Temperatura: {temp})")
-    else:
-        print("✅ Nessun esperimento ha più di 100 immagini")
-    
-    # Statistiche finali
-    print("\n" + "=" * 70)
-    print("📊 STATISTICHE FINALI")
-    print("=" * 70)
-    
-    counts_list = list(exp_counts.values())
-    print(f"📊 Numero totale esperimenti: {len(exp_counts)}")
-    print(f"📊 Totale immagini: {sum(counts_list)}")
-    print(f"📈 Media immagini per esperimento: {sum(counts_list) / len(counts_list):.2f}")
-    print(f"📉 Min immagini per esperimento: {min(counts_list)}")
-    print(f"📈 Max immagini per esperimento: {max(counts_list)}")
-    print(f"📊 Mediana immagini per esperimento: {sorted(counts_list)[len(counts_list)//2]}")
+            percentage = (count / total_attr_images * 100) if total_attr_images else 0.0
+            print(f"  {value}: {count} immagini ({percentage:.2f}%)")
 
 if __name__ == "__main__":
     analyze_dataset_distribution()
