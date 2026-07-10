@@ -1,0 +1,104 @@
+{
+    "EXP01": {
+        "precision": 0.5294117647058824,
+        "recall": 0.45,
+        "f1-score": 0.4864864864864865,
+        "support": 20.0
+    },
+    "EXP02": {
+        "precision": 0.5833333333333334,
+        "recall": 0.7,
+        "f1-score": 0.6363636363636364,
+        "support": 20.0
+    },
+    "EXP03": {
+        "precision": 0.42105263157894735,
+        "recall": 0.4,
+        "f1-score": 0.41025641025641024,
+        "support": 20.0
+    },
+    "EXP04": {
+        "precision": 0.75,
+        "recall": 0.9,
+        "f1-score": 0.8181818181818182,
+        "support": 20.0
+    },
+    "EXP05": {
+        "precision": 0.6666666666666666,
+        "recall": 0.9,
+        "f1-score": 0.7659574468085106,
+        "support": 20.0
+    },
+    "EXP06": {
+        "precision": 0.8,
+        "recall": 0.8,
+        "f1-score": 0.8,
+        "support": 20.0
+    },
+    "EXP07": {
+        "precision": 0.5714285714285714,
+        "recall": 0.6,
+        "f1-score": 0.5853658536585366,
+        "support": 20.0
+    },
+    "EXP08": {
+        "precision": 0.6,
+        "recall": 0.6,
+        "f1-score": 0.6,
+        "support": 20.0
+    },
+    "EXP09": {
+        "precision": 0.8461538461538461,
+        "recall": 0.55,
+        "f1-score": 0.6666666666666666,
+        "support": 20.0
+    },
+    "EXP10": {
+        "precision": 0.8,
+        "recall": 0.6,
+        "f1-score": 0.6857142857142857,
+        "support": 20.0
+    },
+    "EXP11": {
+        "precision": 0.75,
+        "recall": 0.75,
+        "f1-score": 0.75,
+        "support": 20.0
+    },
+    "EXP12": {
+        "precision": 0.6363636363636364,
+        "recall": 0.7,
+        "f1-score": 0.6666666666666666,
+        "support": 20.0
+    },
+    "EXP13": {
+        "precision": 0.5833333333333334,
+        "recall": 0.35,
+        "f1-score": 0.4375,
+        "support": 20.0
+    },
+    "EXP14": {
+        "precision": 0.6153846153846154,
+        "recall": 0.8,
+        "f1-score": 0.6956521739130435,
+        "support": 20.0
+    },
+    "accuracy": 0.65,
+    "macro avg": {
+        "precision": 0.6537948856392023,
+        "recall": 0.6500000000000001,
+        "f1-score": 0.6432008174797187,
+        "support": 280.0
+    },
+    "weighted avg": {
+        "precision": 0.6537948856392023,
+        "recall": 0.65,
+        "f1-score": 0.6432008174797187,
+        "support": 280.0
+    },
+    "metadata": {
+        "attribute": "ID",
+        "use_grayscale": true,
+        "model_dir": "training_results_ID"
+    }
+}

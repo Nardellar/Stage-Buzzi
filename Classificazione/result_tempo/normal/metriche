@@ -1,0 +1,21 @@
+Valutazione finale sul validation set:
+  eval_loss: 0.6089
+  eval_accuracy: 0.8393
+  eval_f1_macro: 0.8311
+  eval_f1_weighted: 0.8396
+  eval_runtime: 7.1452
+  eval_samples_per_second: 39.1870
+  eval_steps_per_second: 0.7000
+  epoch: 40.0000
+
+Addestramento completato!
+Modello e tokenizer salvati in: training_results_tempo
+Artifacts salvati in: training_results_tempo/artifacts.json
+
+
+Evaluating: 100%|███████████████████████████████| 18/18 [00:12<00:00,  1.45it/s]
+Accuracy: 0.8393
+F1 Macro: 0.8311
+Report salvato in: training_results_tempo/evaluation/classification_report.json
+Confusion matrix salvata in: training_results_tempo/evaluation/confusion_matrix.png
+Attention maps salvate in: training_results_tempo/evaluation/attention_maps_tempo.png

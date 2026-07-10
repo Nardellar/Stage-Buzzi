@@ -1,0 +1,19 @@
+Migliore F1 macro (val): 0.3439
+F1 macro best trial     : 0.3439
+
+
+Accuracy pixel (post-CRF): 0.3886
+Balanced accuracy        : 0.3964
+F1 macro                : 0.3720
+F1 per classe:
+  - Resina               0.4178
+  - Pori/Imperfezioni    0.2169
+  - Fase Fusa            0.4446
+  - Belite               0.3029
+  - Alite                0.4780
+IoU per classe:
+  - Resina               0.2640
+  - Pori/Imperfezioni    0.1216
+  - Fase Fusa            0.2858
+  - Belite               0.1785
+  - Alite                0.3140

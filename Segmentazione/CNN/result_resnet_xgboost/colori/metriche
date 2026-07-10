@@ -1,0 +1,65 @@
+Migliore F1 macro (val): 0.3596
+F1 macro best trial     : 0.3596
+
+
+Accuracy pixel (post-CRF): 0.4121
+Balanced accuracy        : 0.4233
+F1 macro                : 0.3961
+F1 per classe:
+  - Resina               0.4301
+  - Pori/Imperfezioni    0.2671
+  - Fase Fusa            0.4922
+  - Belite               0.3122
+  - Alite                0.4790
+IoU per classe:
+  - Resina               0.2739
+  - Pori/Imperfezioni    0.1541
+  - Fase Fusa            0.3264
+  - Belite               0.1850
+  - Alite                0.3150
+
+
+
+
+
+
+  Accuracy pixel: 0.4291
+Balanced accuracy        : 0.4407
+F1 macro                : 0.4326
+F1 per classe:
+  - Resina               0.4449
+  - Pori/Imperfezioni    0.2292
+  - Fase Fusa            0.4813
+  - Belite               0.3361
+  - Alite                0.4612
+  - Calce libera         0.6425
+IoU per classe:
+  - Resina               0.2861
+  - Pori/Imperfezioni    0.1294
+  - Fase Fusa            0.3170
+  - Belite               0.2020
+  - Alite                0.2997
+  - Calce libera         0.4733
+Matrice di confusione salvata in: /kaggle/working/CNN_Project/CNN/gpu_confusion_matrix.png
+[INFO] Anteprima salvata in: /kaggle/working/CNN_Project/CNN/gpu_model_preview.png
+
+
+
+
+Accuracy pixel: 0.4220
+Balanced accuracy        : 0.4333
+F1 macro                : 0.4249
+F1 per classe:
+  - Resina               0.4420
+  - Pori/Imperfezioni    0.2299
+  - Fase Fusa            0.4726
+  - Belite               0.3230
+  - Alite                0.4546
+  - Calce libera         0.6275
+IoU per classe:
+  - Resina               0.2837
+  - Pori/Imperfezioni    0.1299
+  - Fase Fusa            0.3094
+  - Belite               0.1926
+  - Alite                0.2942
+  - Calce libera         0.4572

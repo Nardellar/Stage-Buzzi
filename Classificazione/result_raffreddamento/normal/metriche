@@ -1,0 +1,16 @@
+Writing model shards: 100%|███████████████████████| 1/1 [00:00<00:00,  1.74it/s]
+100%|█████████████████████████████████████████████| 5/5 [00:01<00:00,  3.64it/s]
+
+Valutazione finale sul validation set:
+  eval_loss: 0.4502
+  eval_accuracy: 0.8286
+  eval_f1_macro: 0.8285
+  eval_f1_weighted: 0.8285
+  eval_runtime: 7.5330
+  eval_samples_per_second: 37.1700
+  eval_steps_per_second: 0.6640
+  epoch: 30.0000
+
+Addestramento completato!
+Modello e tokenizer salvati in: training_results_raffreddamento
+Artifacts salvati in: training_results_raffreddamento/artifacts.json

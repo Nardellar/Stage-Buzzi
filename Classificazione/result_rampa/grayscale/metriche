@@ -1,0 +1,13 @@
+Valutazione finale sul validation set:
+  eval_loss: 0.6455
+  eval_accuracy: 0.8107
+  eval_f1_macro: 0.8045
+  eval_f1_weighted: 0.8113
+  eval_runtime: 7.4383
+  eval_samples_per_second: 37.6430
+  eval_steps_per_second: 0.6720
+  epoch: 49.0000
+
+Addestramento completato!
+Modello e tokenizer salvati in: training_results_rampa
+Artifacts salvati in: training_results_rampa/artifacts.json

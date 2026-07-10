@@ -1,0 +1,41 @@
+======================================================================
+                  GPU-OPTIMIZED CNN + CLASSIFICATORE
+======================================================================
+Backbone CNN            : convnext_tiny
+Classificatore boosting  : lightbgm
+Batch size feature       : 2
+Feature map size         : 256x256
+Max pixel per immagine   : 10000
+Uso scala di grigi       : True
+Decoder filters          : 128
+Augmentation copies      : 2
+Augmentation profile     : aggressive
+Learnable decoder        : False
+Numero di trial Optuna   : 40
+Uso GPU                  : True
+Directory immagini       : /kaggle/working/CNN_Project/images/Immagini
+Directory maschere       : /kaggle/working/CNN_Project/images/Maschere
+======================================================================
+
+
+Migliore F1 macro (val): 0.3682
+F1 macro best trial     : 0.3682
+
+
+Accuracy pixel (post-CRF): 0.4277
+Balanced accuracy        : 0.4252
+F1 macro                : 0.4073
+F1 per classe:
+  - Resina               0.4659
+  - Pori/Imperfezioni    0.1956
+  - Fase Fusa            0.5024
+  - Belite               0.3573
+  - Alite                0.5150
+IoU per classe:
+  - Resina               0.3037
+  - Pori/Imperfezioni    0.1084
+  - Fase Fusa            0.3355
+  - Belite               0.2175
+  - Alite                0.3468
+Matrice di confusione salvata in: /kaggle/working/CNN_Project/CNN/gpu_confusion_matrix.png
+[INFO] Anteprima salvata in: /kaggle/working/CNN_Project/CNN/gpu_model_preview.png

@@ -1,0 +1,62 @@
+valutazione finale sul validation set:
+  eval_loss: 0.4728
+  eval_accuracy: 0.9143
+  eval_f1_macro: 0.9157
+  eval_f1_weighted: 0.9137
+  eval_runtime: 7.4885
+  eval_samples_per_second: 37.3900
+  eval_steps_per_second: 0.6680
+  epoch: 52.0000
+
+Addestramento completato!
+Modello e tokenizer salvati in: training_results_temperatura
+Artifacts salvati in: training_results_temperatura/artifacts.json
+
+metirche su test set:
+
+Dispositivo: cuda
+Modello: training_results_temperatura
+Caricato da artifacts.json:
+  - attribute: temperatura
+  - use_grayscale: False
+  - num_classes: 3
+Validation split rigenerato e salvato in 'validation_test_set/'.
+Evaluating: 100%|███████████████████████████████| 18/18 [00:14<00:00,  1.25it/s]
+Accuracy: 0.9143
+F1 Macro: 0.9157
+Report salvato in: training_results_temperatura/evaluation/classification_report.json
+Confusion matrix salvata in: training_results_temperatura/evaluation/confusion_matrix.png
+Attention maps salvate in: training_results_temperatura/evaluation/attention_maps_temperatura.png
+
+
+
+
+
+result evaluation:
+FILE: /kaggle/working/Classificazione/ViT/training_results_temperatura/artifacts.json
+================================================================================
+{
+  "attribute": "temperatura",
+  "id_to_class": {
+    "0": "1300",
+    "1": "1400",
+    "2": "1500"
+  },
+  "class_to_id": {
+    "1300": 0,
+    "1400": 1,
+    "1500": 2
+  },
+  "best_model_dir": "training_results_temperatura",
+  "eval_results": {
+    "eval_loss": 0.47275543212890625,
+    "eval_accuracy": 0.9142857142857143,
+    "eval_f1_macro": 0.9156803557879593,
+    "eval_f1_weighted": 0.9136744969985786,
+    "eval_runtime": 7.4885,
+    "eval_samples_per_second": 37.39,
+    "eval_steps_per_second": 0.668,
+    "epoch": 52.0
+  },
+  "use_grayscale": false
+}

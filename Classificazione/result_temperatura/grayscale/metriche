@@ -1,0 +1,13 @@
+Valutazione finale sul validation set:
+  eval_loss: 0.4943
+  eval_accuracy: 0.9000
+  eval_f1_macro: 0.9025
+  eval_f1_weighted: 0.8996
+  eval_runtime: 7.5558
+  eval_samples_per_second: 37.0580
+  eval_steps_per_second: 0.6620
+  epoch: 35.0000
+
+Addestramento completato!
+Modello e tokenizer salvati in: training_results_temperatura
+Artifacts salvati in: training_results_temperatura/artifacts.json

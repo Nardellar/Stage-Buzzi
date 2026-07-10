@@ -1,0 +1,40 @@
+======================================================================
+                  GPU-OPTIMIZED CNN + CLASSIFICATORE
+======================================================================
+Backbone CNN            : convnext_tiny
+Classificatore boosting  : xgboost
+Batch size feature       : 2
+Feature map size         : 256x256
+Max pixel per immagine   : 10000
+Uso scala di grigi       : False
+Decoder filters          : 128
+Augmentation copies      : 2
+Augmentation profile     : aggressive
+Learnable decoder        : False
+Numero di trial Optuna   : 40
+Uso GPU                  : True
+Directory immagini       : /kaggle/working/CNN_Project/images/Immagini
+Directory maschere       : /kaggle/working/CNN_Project/images/Maschere
+======================================================================
+/kaggle/working/CNN_Project/CNN/data_module.py:289: RuntimeWarning: Spl
+
+
+Migliore F1 macro (val): 0.3872
+F1 macro best trial     : 0.3872
+
+
+ Accuracy pixel (post-CRF): 0.4380
+Balanced accuracy        : 0.4488
+F1 macro                : 0.4294
+F1 per classe:
+  - Resina               0.4815
+  - Pori/Imperfezioni    0.2823
+  - Fase Fusa            0.5080
+  - Belite               0.3993
+  - Alite                0.4758
+IoU per classe:
+  - Resina               0.3171
+  - Pori/Imperfezioni    0.1643
+  - Fase Fusa            0.3405
+  - Belite               0.2495
+  - Alite                0.3121

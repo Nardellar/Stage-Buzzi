@@ -1,0 +1,21 @@
+Migliore F1 macro (val): 0.3724
+F1 macro best trial     : 0.3724
+
+
+Accuracy pixel (post-CRF): 0.4257
+Balanced accuracy        : 0.4381
+F1 macro                : 0.4172
+F1 per classe:
+  - Resina               0.4319
+  - Pori/Imperfezioni    0.2888
+  - Fase Fusa            0.4877
+  - Belite               0.3974
+  - Alite                0.4803
+IoU per classe:
+  - Resina               0.2755
+  - Pori/Imperfezioni    0.1688
+  - Fase Fusa            0.3225
+  - Belite               0.2480
+  - Alite                0.3160
+Matrice di confusione salvata in: /kaggle/working/CNN_Project/CNN/gpu_confusion_matrix.png
+[INFO] Anteprima salvata in: /kaggle/working/CNN_Project/CNN/gpu_model_preview.png
