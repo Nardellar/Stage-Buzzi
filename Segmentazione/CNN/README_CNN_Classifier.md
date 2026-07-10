@@ -30,7 +30,13 @@ python script_di_controllo/download_dataset.py
 
 Lo script scaricherà lo .zip da Google Drive e creerà la cartella images/ posizionandola al livello corretto per l'addestramento.
 
-### 3. Addestramento del Modello
+### 3. Download Modelli Pre-addestrati (Opzionale)
+Se desideri saltare la fase di addestramento ed eseguire subito l'inferenza, puoi scaricare un archivio contenente i modelli già addestrati ed ottimizzati da questo link: 
+https://drive.google.com/file/d/1N85d31taP8SlyAKWwxw0I8c0I9JEirgp/view?usp=sharing
+
+Una volta scaricato, estrai i file (.keras e .pkl/.json) direttamente nella catella "**CNN**" del progetto. Potrai poi passare direttamente al Punto 5 per testarli.
+
+### 4. Addestramento del Modello
 Per avviare l'estrazione delle feature e l'ottimizzazione del classificatore. Puoi scegliere il backbone CNN tramite riga di comando.
 
 ```bash
@@ -45,7 +51,7 @@ python train_gpu_optimized_classifier.py --grayscale
 ```
 *I file del modello addestrato (estrattore `.keras` e classificatore `.pkl`/`.json`) verranno salvati nella root del progetto.*
 
-### 4. Valutazione e Inferenza
+### 5. Valutazione e Inferenza
 Per testare il modello sulle immagini di validazione/holdout. Lo script genererà in automatico un report delle metriche e salverà le anteprime.
 
 ```bash
