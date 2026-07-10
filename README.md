@@ -1,27 +1,52 @@
-# Stage-Buzzi
+# 🔬 Analisi di Immagini del Clinker tramite Deep Learning
 
-This repository collects machine learning utilities for image classification and segmentation. The code is organized into separate folders for classification models, segmentation pipelines and setup scripts.
+Questo repository contiene una coppia di modelli avanzati di Computer Vision e Machine Learning sviluppati per l'analisi automatica delle componenti del clinker (cemento) tramite immagini acquisite al microscopio.
 
-## Directory overview
+Il progetto è strutturato in due moduli principali e indipendenti, ognuno dedicato a un task specifico di analisi: **Segmentazione Semantica** e **Classificazione**.
 
-- `Classificazione/` – CNN and ViT models plus utilities for building datasets and generating the `esperimenti.csv` file.
-- `Segmentazione/` – segmentation models including a small CNN and an embedded copy of Meta's Segment Anything.
-- `Setup/` – environment notes and formatting tools (`Formattazione commit/` contains an optional `pre-commit` configuration).
-- `Commenti/` – assorted project notes.
-- `requirements.txt` – core Python dependencies.
+---
 
-## Quick start
+## 📂 Struttura del Progetto
 
-1. Install the dependencies:
+Il repository è diviso in due grandi sezioni. Ogni sezione contiene i propri script di addestramento, inferenza e una documentazione dettagliata dedicata.
+
+### 1. [Segmentazione (CNN + Gradient Boosting)](./Segmentazione/CNN/README.md)
+Pipeline ibrida che combina l'estrazione spaziale di feature tramite Reti Neurali Convoluzionali (ResNet50 / ConvNeXt) con l'efficienza dei classificatori Gradient Boosting (XGBoost / LightGBM) e il raffinamento spaziale tramite DenseCRF.
+* **Obiettivo:** Segmentazione pixel-perfect delle componenti (Alite, Belite, Fase Fusa, Pori, Calce libera).
+
+### 2. [Classificazione (Vision Transformers - ViT)](Classificazione/ViT/README.md)
+Modelli basati su architettura Transformer (ViT) per analizzare e classificare intere immagini di clinker in base a specifiche condizioni di produzione (temperatura, tempi di rampa, tempo totale, raffreddamento).
+* **Obiettivo:** Classificazione globale e analisi dell'attenzione del modello (Attention Maps) sulle caratteristiche macroscopiche.
+
+---
+
+## 🚀 Setup Rapido Globale
+
+Tutti i moduli condividono un unico ambiente virtuale per evitare conflitti di dipendenze tra i vari framework (TensorFlow, PyTorch, XGBoost, ecc.).
+
+### Installazione dell'ambiente
+
+**1.** Clona il repository:
    ```bash
-   pip install -r requirements.txt
-   ```
-2. Run the classification models. The dataset utilities will
-   automatically create `esperimenti.csv` the first time you run them.
-   For example:
+   git clone https://github.com/Nardellar/Stage-Buzzi.git
+   cd Stage-Buzzi
+  ```
+    
+**2.** Crea un ambiente virtuale (consigliato Python 3.11):
    ```bash
-   python -m Classificazione.CNN.model_temperatura
+   python -m venv .venv
+   source .venv/bin/activate  # Linux/Mac
+   #.venv\Scripts\activate     # Windows
    ```
-   Replace `model_temperatura` with the desired module (e.g. `model_tempo`, `model_raffreddamento`, ...).
+**3.** Installa tutte le dipendenze unificate:
+    ```bash
+    pip install -r requirements.txt
+    ```
 
-The repository also provides an optional pre‑commit configuration in `Setup/Formattazione commit/` which formats Python files with **black** and **isort**.
+### Gestione Dati e Modelli (Note Importanti)
+Per mantenere il repository leggero e rispettare i limiti di GitHub, il dataset per il task di segmentazione è incompleto, ma è possibile scaricarlo leggendo le [istruzioni specifiche](./Segmentazione/CNN/README.md) all'interno delle cartella CNN; stesso discordo per  i pesi dei modelli addestrati (.keras, .pth, .pkl).
+
+
+## Tesi e Progetto
+Per approfondire le scelte tecniche, l'analisi dei dati e i risultati completi, è possibile consultare la tesi integrale allegata al repository: \
+**[Leggi la Tesi Completa (Tesi_Stage_Buzzi.pdf)](./Tesi_Stage_Buzzi.pdf)**
